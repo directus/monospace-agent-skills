@@ -38,6 +38,7 @@ These are verified, easy-to-miss behaviors. Getting them wrong fails silently.
 - **Filter operators are underscore-prefixed.** `_eq _neq _lt _lte _gt _gte _in _nin _between _nbetween _contains _icontains _ncontains _nicontains _starts_with _nstarts_with _ends_with _nends_with _null`; combine with `_and _or _not`; for to-many relations use quantifiers `_some _every _none`. `_null` is only valid on nullable fields. Full table in [references/rest-api.md](references/rest-api.md).
 - **Sort uses the object form, not `-field`.** Use `sort: [{ <field>: { direction: 'asc' | 'desc' } }]`. The `-created_at` shorthand is rejected by the engine.
 - **No `search` param, no `page`/cursor pagination, no aggregates yet.** Paginate with `limit` (default 100) + `offset`. Aggregate/group params parse but are silently ignored today.
+
 ## Connect to a Monospace instance
 
 You need three things: the **host** (engine base URL), the **project** slug (Monospace is multi-project; most data routes are `/api/<project>/...`), and a **token**. Create an API key in the Studio under **Account → Access → API Keys** (`/account/access#api-keys`), or use a user access token — both are JWTs and travel as `Authorization: Bearer <token>`. (For automation, the key endpoint is `POST /api/system/api-keys`.)
