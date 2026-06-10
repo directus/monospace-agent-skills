@@ -20,7 +20,7 @@
 
 ## Overview
 
-**Monospace Agent Skills** is the official [Agent Skills](https://agentskills.io) bundle for [Monospace](https://monospace.io). It gives AI coding agents the knowledge to work with a real Monospace instance: query and mutate data through the REST API or the typed `@monospace/sdk-client`, generate a client typed to *your* instance's schema, and connect to the Monospace MCP server — correctly, from the first try.
+**Monospace Agent Skills** is the official [Agent Skills](https://agentskills.io) bundle for [Monospace](https://monospace.io). It gives AI coding agents the knowledge to work with a real Monospace instance: query and mutate data through the REST API or the typed `@monospace/sdk`, generate a client typed to *your* instance's schema, and connect to the Monospace MCP server — correctly, from the first try.
 
 Agents don't have Monospace in their training data, so left alone they guess. This bundle gives them the ground truth: the query engine, the `{ data }` response shape, the real auth and endpoints, the silent-failure traps, and the one-command path to fully-typed SDK calls.
 

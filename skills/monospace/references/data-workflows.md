@@ -72,7 +72,7 @@ Before creating collections/fields or writing into an unfamiliar collection, ins
 ## Error handling
 
 ```ts
-import { MonospacePermissionError, MonospaceValidationError } from '@monospace/sdk-client';
+import { MonospacePermissionError, MonospaceValidationError } from '@monospace/sdk';
 try {
   await client.articles.createOne({ /* … */ });
 } catch (err) {

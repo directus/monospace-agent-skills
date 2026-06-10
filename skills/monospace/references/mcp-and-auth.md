@@ -57,5 +57,5 @@ Read-first workflow: use `read_schema` (and `list_items`) before `create_items` 
 ## When to use MCP vs SDK vs REST
 
 - **MCP** — agentic CRUD and schema work from inside a chat/coding agent, under RBAC, no codegen step. Start here for "read/change my data" tasks.
-- **SDK** (`@monospace/sdk-client`) — application code in TypeScript; generate types first for full type safety ([sdk.md](sdk.md)).
+- **SDK** (`@monospace/sdk`) — application code in TypeScript; generate types first for full type safety ([sdk.md](sdk.md)).
 - **REST** — other languages, scripts, or when you need raw control ([rest-api.md](rest-api.md)).

@@ -1,14 +1,14 @@
-# Monospace SDK (`@monospace/sdk-client`)
+# Monospace SDK (`@monospace/sdk`)
 
 The typed TypeScript client. Best path: generate types from your instance, then write fully-typed queries against the generated `createClient`.
 
 ## Install + construct the client
 
 ```bash
-npm i @monospace/sdk-client
+npm i @monospace/sdk
 ```
 ```ts
-import { createClient } from '@monospace/sdk-client';
+import { createClient } from '@monospace/sdk';
 
 const client = createClient({
   url: 'https://YOUR_HOST',   // engine base URL (no /api)
