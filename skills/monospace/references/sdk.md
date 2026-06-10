@@ -4,6 +4,8 @@ The typed TypeScript client. Best path: generate types from your instance, then 
 
 ## Install + construct the client
 
+**First check whether it's already installed.** A Monospace project often already depends on `@monospace/sdk` (and may already have a generated client) — check `package.json` / `node_modules` before adding it. Only install if it's missing:
+
 ```bash
 npm i @monospace/sdk
 ```
