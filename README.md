@@ -104,4 +104,4 @@ Issues and PRs welcome. Keep `SKILL.md` lean (it loads on every trigger), put de
 
 ## License
 
-[MIT](LICENSE) © Directus
+[MIT](LICENSE) © Monospace Inc.
