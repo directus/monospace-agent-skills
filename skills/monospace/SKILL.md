@@ -78,7 +78,7 @@ monospace init       # scaffold monospace.config.ts (remote mode)
 monospace login      # store credentials in the OS keyring (or set MONOSPACE_API_KEY)
 monospace generate   # fetch the live OpenAPI and emit <output>/index.ts
 ```
-The generated `index.ts` exports a `createClient` bound to your instance's schema. Import it and write fully-typed queries. Remote mode fetches `GET /api/<project>/openapi` (auth required); local mode reads a saved OpenAPI JSON via `input`. Details, flags, and a zero-to-typed-client sequence: [references/sdk.md](references/sdk.md).
+The generated `index.ts` exports a `createClient` bound to your instance's schema — import it from your generated path (e.g. `~/generated/monospace`), not from `@monospace/sdk`, for fully-typed queries. Remote mode fetches `GET /api/<project>/openapi` (auth required); local mode reads a saved OpenAPI JSON via `input`. Details, flags, and a zero-to-typed-client sequence: [references/sdk.md](references/sdk.md).
 
 ## Reference guides
 

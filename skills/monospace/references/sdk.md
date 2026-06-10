@@ -7,8 +7,11 @@ The typed TypeScript client. Best path: generate types from your instance, then 
 ```bash
 npm i @monospace/sdk
 ```
+
+**Recommended:** import `createClient` from your **generated** client (typed to *your* instance's schema), not from `@monospace/sdk` directly. Generate it first (see [codegen](#generate-instance-correct-types-codegen) below).
+
 ```ts
-import { createClient } from '@monospace/sdk';
+import { createClient } from '~/generated/monospace'; // your generated output dir; `/index.ts` is implied
 
 const client = createClient({
   url: 'https://YOUR_HOST',   // engine base URL (no /api)
@@ -16,6 +19,12 @@ const client = createClient({
   apiKey: process.env.MONOSPACE_API_KEY, // JWT: API key or user access token
 });
 // Base URL becomes `${url}/api/${project}`.
+```
+
+Haven't generated types yet? `@monospace/sdk` exports a generic `createClient` with the same config, but it is **not** typed to your schema — prefer the generated import above:
+
+```ts
+import { createClient } from '@monospace/sdk'; // generic; not schema-typed
 ```
 
 **Auth modes:**
@@ -62,7 +71,7 @@ The `monospace` CLI turns the live OpenAPI doc into a typed client matching your
 ```bash
 monospace init       # scaffold monospace.config.ts (remote mode)
 monospace login      # email/password → stored in OS keyring (or set MONOSPACE_API_KEY)
-monospace generate   # fetch live OpenAPI → write <output>/index.ts
+monospace generate   # fetch live OpenAPI → write generated/monospace/index.ts
 monospace validate   # connectivity/auth check
 monospace logout
 ```
@@ -70,7 +79,7 @@ monospace logout
 **Config** (`monospace.config.ts` / `.js`, discovered via jiti):
 - **Remote mode** — generate fetches `GET /api/<project>/openapi` (auth required) using your stored credentials or `MONOSPACE_API_KEY`.
 - **Local mode** — set `input` to a saved OpenAPI JSON file; no network. (Local configs are hand-authored; `init` scaffolds remote only.)
-- Output is always `<output>/index.ts`.
+- Output is written to your config's `output` dir as `index.ts`. Recommended: set `output` to `generated/monospace`, then import from `~/generated/monospace`.
 
 The generator consumes the `x-monospace-mappings` extension in the OpenAPI doc to map operations to typed collection delegates, and the emitted `index.ts` exports a `createClient` already bound to your schema.
 
@@ -84,11 +93,11 @@ monospace init                      # answer prompts: host, project
 # 2. authenticate
 monospace login                     # or: export MONOSPACE_API_KEY=<jwt>
 # 3. generate
-monospace generate                  # writes ./<output>/index.ts
+monospace generate                  # writes generated/monospace/index.ts
 ```
 ```ts
-// 4. use the generated, fully-typed client
-import { createClient } from './<output>';
+// 4. use the generated, fully-typed client (NOT @monospace/sdk)
+import { createClient } from '~/generated/monospace';
 const client = createClient({ url, project, apiKey: process.env.MONOSPACE_API_KEY });
 const { /* typed */ } = await client.articles.readMany({ /* typed options */ });
 ```
