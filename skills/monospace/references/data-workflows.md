@@ -1,30 +1,35 @@
 # Monospace data workflows
 
-Known-good recipes for reading and writing data, with the traps annotated inline. Examples use the typed SDK; the REST equivalents follow the same query shape ([rest-api.md](rest-api.md)). Always read back after a write to verify.
+Known-good recipes for reading and writing data, with the traps annotated inline. Examples use the typed SDK (every method takes a single options object; collections are cased as named). REST equivalents follow the same query shape ([rest-api.md](rest-api.md)). Let TypeScript infer result types — don't hand-roll them ([sdk.md](sdk.md)). Read back after a write to verify.
 
 ## Read: filter, select, sort, paginate
 
 ```ts
-// Filter + nested selection. Request relations explicitly — fields defaults to
-// top-level primitives, so `author` would be omitted without selecting it.
-const { /* items */ } = await client.articles.readMany({
+// Filter + nested selection. Select relations explicitly — with `fields` omitted you
+// get scalar fields only, so `author` would be missing without selecting it.
+const articles = await client.Articles.readMany({
   filter: { status: { _eq: 'published' }, views: { _gte: 100 } },
   fields: ['id', 'title', { author: ['id', 'name'] }],
   sort: [{ created_at: { direction: 'desc' } }],
   limit: 20,
   offset: 0,
 });
+// `articles` is fully typed and narrowed to the selected fields — no interface needed.
 
-// Read a relation off an item: nested to-many relations stay enveloped.
-const article = await client.articles.readOne(id, { fields: ['id', { comments: ['id', 'body'] }] });
-const comments = article.comments.data; // NOT article.comments
+// Read a single item by key. To-one relations are accessed directly...
+const article = await client.Articles.readOne({ key: 1, fields: ['id', { author: ['name'] }] });
+const authorName = article.author?.name; // to-one → T | null, direct access
+
+// ...to-many relations stay enveloped under `.data`:
+const withComments = await client.Articles.readOne({ key: 1, fields: ['id', { comments: ['id', 'body'] }] });
+const comments = withComments.comments?.data; // NOT withComments.comments
 ```
 
 Pagination is manual — there is no `page` param:
 ```ts
 const pageSize = 25;
 const page = 3;
-await client.articles.readMany({ limit: pageSize, offset: (page - 1) * pageSize });
+await client.Articles.readMany({ fields: ['id', 'title'], limit: pageSize, offset: (page - 1) * pageSize });
 ```
 
 ## Filter cheat sheet
@@ -34,7 +39,7 @@ await client.articles.readMany({ limit: pageSize, offset: (page - 1) * pageSize 
 { status: { _in: ['draft', 'review'] } }                      // set membership
 { published_at: { _null: false } }                            // not null (nullable fields only)
 { _and: [ { views: { _gte: 100 } }, { featured: { _eq: true } } ] }
-{ _or: [ { status: { _eq: 'published' } }, { author: { _eq: meId } } ] }
+{ _or: [ { status: { _eq: 'published' } }, { author_id: { _eq: meId } } ] }
 { comments: { _some: { approved: { _eq: true } } } }          // to-many quantifier
 ```
 `-field` sort is rejected — always the object form. `_null` only on nullable fields. No `search`; use `_icontains` / `_contains` for text matching.
@@ -42,26 +47,30 @@ await client.articles.readMany({ limit: pageSize, offset: (page - 1) * pageSize 
 ## Create
 
 ```ts
-// Single — pass an object (createOne is batch-oriented internally; do NOT pre-wrap in [] yourself).
-const created = await client.articles.createOne({ title: 'Hello', status: 'draft' });
+// createOne — payload under `data` (a single object); `fields` selects what comes back.
+const created = await client.Articles.createOne({
+  data: { title: 'Hello', status: 'draft' },
+  fields: ['id', 'title'],
+});
 
-// Many
-await client.articles.createMany([{ title: 'A' }, { title: 'B' }]);
+// createMany — `data` is an array.
+await client.Articles.createMany({ data: [{ title: 'A' }, { title: 'B' }], fields: ['id'] });
 ```
 
 ## Update
 
 ```ts
-await client.articles.updateOne(id, { status: 'published' });
-await client.articles.updateMany({ filter: { status: { _eq: 'draft' } } }, { status: 'archived' });
+await client.Articles.updateOne({ key: 1, data: { status: 'published' }, fields: ['id', 'status'] });
+await client.Articles.updateMany({ filter: { status: { _eq: 'draft' } }, data: { status: 'archived' }, fields: ['id'] });
 ```
+Update inputs make every field optional — include only what you want to change.
 
 ## Delete
 
 ```ts
-// Delete requires `fields` — pass at least the key; the selected fields are returned.
-const removed = await client.articles.deleteOne(id, { fields: ['id', 'title'] });
-await client.articles.deleteMany({ filter: { status: { _eq: 'archived' } }, fields: ['id'] });
+// Delete requires `fields` — a delete with none fails. Pass at least the key; the selected fields are returned.
+const removed = await client.Articles.deleteOne({ key: 1, fields: ['id', 'title'] });
+await client.Articles.deleteMany({ filter: { status: { _eq: 'archived' } }, fields: ['id'] });
 ```
 
 ## Inspect schema before mutating
@@ -73,7 +82,7 @@ Before creating collections/fields or writing into an unfamiliar collection, ins
 ```ts
 import { MonospacePermissionError, MonospaceValidationError } from '@monospace/sdk';
 try {
-  await client.articles.createOne({ /* … */ });
+  await client.Articles.createOne({ data: { /* … */ }, fields: ['id'] });
 } catch (err) {
   if (err instanceof MonospaceValidationError) { /* fix payload */ }
   else if (err instanceof MonospacePermissionError) { /* lacks RBAC */ }

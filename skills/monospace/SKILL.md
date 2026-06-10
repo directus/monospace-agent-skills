@@ -31,9 +31,9 @@ If an approach fails 2-3 times, stop and reconsider — check the error body (it
 
 These are verified, easy-to-miss behaviors. Getting them wrong fails silently.
 
-- **Responses are enveloped as `{ "data": ... }`.** A list returns `{ data: [...] }`, a single item `{ data: {...} }`. The SDK strips the *top-level* envelope for you, but **nested to-many relations stay enveloped** — relation data sits under `relation.data`, and the SDK does NOT unwrap it. Reach into `item.<relation>.data`.
-- **`createOne` sends an array under the hood and item creation is batch-oriented.** Provide a single object to `createOne`; do not double-wrap in an array yourself.
-- **Deletes require `fields`.** A `deleteOne` / `deleteMany` with no `fields` fails — always pass `fields` (e.g. the primary key). The fields you select are what the delete returns.
+- **Responses are enveloped as `{ "data": ... }`.** A list returns `{ data: [...] }`, a single item `{ data: {...} }`. The SDK strips the *top-level* envelope for you, but **nested to-many relations stay enveloped** — relation data sits under `relation.data`, and the SDK does NOT unwrap it. Reach into `item.<relation>.data` (to-one relations are accessed directly).
+- **Methods take a single options object, not positional args.** `readOne`/`updateOne`/`deleteOne` take `{ key, ... }`; `createOne({ data: <object>, fields })` (single object under `data`); `createMany`/`updateMany`/`deleteMany` take `{ data | filter, fields }`. There is no `readOne(id)` form. Collections are cased as named (`client.Articles`, not `client.articles`).
+- **Deletes require `fields`.** `deleteOne({ key, fields })` / `deleteMany({ filter, fields })` with no `fields` fails — always pass `fields`; the selected fields are what the delete returns.
 - **`fields` defaults to top-level primitives only.** Relations are not returned unless you select them. The SDK sends `fields: ['*']` by default (top-level), so request nested fields explicitly to get relations.
 - **Filter operators are underscore-prefixed.** `_eq _neq _lt _lte _gt _gte _in _nin _between _nbetween _contains _icontains _ncontains _nicontains _starts_with _nstarts_with _ends_with _nends_with _null`; combine with `_and _or _not`; for to-many relations use quantifiers `_some _every _none`. `_null` is only valid on nullable fields. Full table in [references/rest-api.md](references/rest-api.md).
 - **Sort uses the object form, not `-field`.** Use `sort: [{ <field>: { direction: 'asc' | 'desc' } }]`. The `-created_at` shorthand is rejected by the engine.
@@ -74,11 +74,11 @@ Config (`.mcp.json` at the project root):
 ## Generate a typed SDK client (codegen)
 
 ```bash
-monospace init       # scaffold monospace.config.ts (remote mode)
-monospace login      # store credentials in the OS keyring (or set MONOSPACE_API_KEY)
-monospace generate   # fetch the live OpenAPI and emit <output>/index.ts
+npx @monospace/sdk init       # scaffold monospace.config.ts (output defaults to ./src/generated/monospace)
+npx @monospace/sdk login      # store credentials in the OS keyring (or set MONOSPACE_API_KEY)
+npx @monospace/sdk generate   # fetch the live OpenAPI and emit <output>/index.ts
 ```
-The generated `index.ts` exports a `createClient` bound to your instance's schema — import it from your generated path (e.g. `~/generated/monospace`), not from `@monospace/sdk`, for fully-typed queries. Remote mode fetches `GET /api/<project>/openapi` (auth required); local mode reads a saved OpenAPI JSON via `input`. Details, flags, and a zero-to-typed-client sequence: [references/sdk.md](references/sdk.md).
+The generated `index.ts` exports a `createClient` bound to your instance's schema — import it from your generated output (default `./src/generated/monospace`; match your project's path/alias), not from `@monospace/sdk`, for fully-typed queries. Remote mode fetches `GET /api/<project>/openapi` (auth required); local mode reads a saved OpenAPI JSON via `input`. Details, flags, and a zero-to-typed-client sequence: [references/sdk.md](references/sdk.md).
 
 ## Reference guides
 
