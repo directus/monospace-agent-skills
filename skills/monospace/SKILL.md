@@ -42,7 +42,7 @@ These are verified, easy-to-miss behaviors. Getting them wrong fails silently.
 
 ## Connect to a Monospace instance
 
-You need three things: the **host** (engine base URL), the **project** slug (Monospace is multi-project; most data routes are `/api/<project>/...`), and a **token**. Mint an API key at `POST /api/system/api-keys`, or use a user access token — both are JWTs and travel as `Authorization: Bearer <token>`.
+You need three things: the **host** (engine base URL), the **project** slug (Monospace is multi-project; most data routes are `/api/<project>/...`), and a **token**. Create an API key in the Studio under **Account → Access → API Keys** (`/account/access#api-keys`), or use a user access token — both are JWTs and travel as `Authorization: Bearer <token>`. (For automation, the key endpoint is `POST /api/system/api-keys`.)
 
 Two ways an agent works with the data:
 - **MCP server** — best for agentic CRUD + schema work inside a chat/coding agent. Set it up below.

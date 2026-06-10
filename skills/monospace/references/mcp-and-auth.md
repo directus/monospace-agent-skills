@@ -5,7 +5,7 @@ How to connect an agent to the Monospace MCP server, what it exposes, and how au
 ## Authentication model
 
 Everything authenticates with a **JWT Bearer token**. Two kinds, interchangeable on the wire:
-- **API key** — mint at `POST /api/system/api-keys`. Best for agents/automation. Carries its own RBAC.
+- **API key** — create one in the Studio under **Account → Access → API Keys** (`/account/access#api-keys`); for automation it is also available as `POST /api/system/api-keys`. Best for agents. Carries its own RBAC.
 - **User access token** — obtained by logging in (`POST /api/<project>/auth/providers/<name>/password/login`). Carries the user's RBAC.
 
 Send it as `Authorization: Bearer <token>`. Keep it out of source — use an env var (`MONOSPACE_API_KEY`) or your agent's secret store. Cookie/session auth exists for browser apps, but **the MCP server ignores cookies** — it requires a Bearer token.

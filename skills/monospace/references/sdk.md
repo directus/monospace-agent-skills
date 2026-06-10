@@ -23,7 +23,7 @@ const client = createClient({
 - **Cookie / session** — for browser apps; the client sends credentials with the request instead of a bearer.
 - **Custom headers** — supply your own header map for advanced cases.
 
-The SDK does **not** implement login/refresh — obtain a token out of band (mint an API key at `POST /api/system/api-keys`, or log in via the provider endpoint) and hand it to `createClient`.
+The SDK does **not** implement login/refresh — obtain a token out of band (create an API key in the Studio under Account → Access → API Keys, or log in via the provider endpoint) and hand it to `createClient`.
 
 ## Typed delegate API
 

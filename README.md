@@ -20,7 +20,7 @@
 
 ## Overview
 
-**Monospace Agent Skills** is the official [Agent Skills](https://agentskills.io) bundle for [Monospace](https://monospace.io). It gives AI coding agents (Claude Code, Cursor, Copilot, and 18+ others) the knowledge to work with a real Monospace instance: query and mutate data through the REST API or the typed `@monospace/sdk-client`, generate a client typed to *your* instance's schema, and connect to the Monospace MCP server — correctly, from the first try.
+**Monospace Agent Skills** is the official [Agent Skills](https://agentskills.io) bundle for [Monospace](https://monospace.io). It gives AI coding agents the knowledge to work with a real Monospace instance: query and mutate data through the REST API or the typed `@monospace/sdk-client`, generate a client typed to *your* instance's schema, and connect to the Monospace MCP server — correctly, from the first try.
 
 Agents don't have Monospace in their training data, so left alone they guess. This bundle gives them the ground truth: the query engine, the `{ data }` response shape, the real auth and endpoints, the silent-failure traps, and the one-command path to fully-typed SDK calls.
 
@@ -43,7 +43,7 @@ claude plugin marketplace add directus/monospace-agent-skills
 claude plugin install monospace@monospace-agent-skills
 ```
 
-### Any agent (Cursor, Copilot, Cline, …) via the skills CLI
+### Other agents (via the skills CLI)
 
 ```bash
 npx skills add directus/monospace-agent-skills
@@ -72,7 +72,7 @@ The Monospace MCP server is served **by your own engine, per project**, so the U
 }
 ```
 
-1. Mint an API key at `POST /api/system/api-keys` (or use a user access token — both are JWTs).
+1. Create an API key in the Monospace Studio under **Account → Access → API Keys** (`/account/access#api-keys`) — or use a user access token. Both are JWTs.
 2. Put it in `MONOSPACE_API_KEY` so it isn't committed.
 3. Ensure the project has the `ai:mcp` entitlement; tools then run under the key's permissions.
 
@@ -96,7 +96,7 @@ Built on the [Agent Skills open standard](https://agentskills.io): a `SKILL.md` 
 
 ## Compatibility
 
-Works with any agent that supports the Agent Skills standard, including Claude Code, claude.ai, Cursor, GitHub Copilot, Cline, and Gemini CLI.
+Authored for Claude Code and the [Agent Skills open standard](https://agentskills.io), so it also works with other agents that support the standard. The `npx skills add` command installs across agents that the [skills CLI](https://agentskills.io) supports.
 
 ## Contributing
 

@@ -8,7 +8,7 @@ Monospace is multi-project. Most data and schema routes are project-scoped under
 
 ## Auth
 
-Send a JWT as `Authorization: Bearer <token>`. The token is either a user **access token** (from login) or an **API key** (mint at `POST /api/system/api-keys`) — both are JWTs. Cookie/session auth also exists for browser apps, but for agents and scripts use a Bearer token.
+Send a JWT as `Authorization: Bearer <token>`. The token is either a user **access token** (from login) or an **API key** (create one in the Studio under Account → Access → API Keys; programmatically `POST /api/system/api-keys`) — both are JWTs. Cookie/session auth also exists for browser apps, but for agents and scripts use a Bearer token.
 
 Password login is **provider-scoped**: `POST /api/<project>/auth/providers/<name>/password/login`, where `<name>` is the configured provider's api name. There is no flat `/api/auth/login`.
 
@@ -72,7 +72,7 @@ deep[comments][_filter][approved][_eq]=true&deep[comments][_limit]=5
 | Delete item | `DELETE /api/<project>/items/<collection>/<id>` |
 | OpenAPI (project) | `GET /api/<project>/openapi` |
 | OpenAPI (system) | `GET /api/system/openapi` |
-| Mint API key | `POST /api/system/api-keys` |
+| Create API key (or use Studio → Account → Access) | `POST /api/system/api-keys` |
 | Password login | `POST /api/<project>/auth/providers/<name>/password/login` |
 
 The engine exposes additional admin/schema/data-source/AI/audit endpoints beyond this core set; the OpenAPI doc is the authoritative, complete list for a given instance. Always check it for the exact route and payload of anything not above.
