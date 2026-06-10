@@ -59,10 +59,9 @@ await client.articles.updateMany({ filter: { status: { _eq: 'draft' } } }, { sta
 ## Delete
 
 ```ts
-// Returns undefined by default — pass `fields` if you need the deleted row back.
-await client.articles.deleteOne(id);
+// Delete requires `fields` — pass at least the key; the selected fields are returned.
 const removed = await client.articles.deleteOne(id, { fields: ['id', 'title'] });
-await client.articles.deleteMany({ filter: { status: { _eq: 'archived' } } });
+await client.articles.deleteMany({ filter: { status: { _eq: 'archived' } }, fields: ['id'] });
 ```
 
 ## Inspect schema before mutating

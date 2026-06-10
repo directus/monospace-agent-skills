@@ -33,13 +33,11 @@ These are verified, easy-to-miss behaviors. Getting them wrong fails silently.
 
 - **Responses are enveloped as `{ "data": ... }`.** A list returns `{ data: [...] }`, a single item `{ data: {...} }`. The SDK strips the *top-level* envelope for you, but **nested to-many relations stay enveloped** — relation data sits under `relation.data`, and the SDK does NOT unwrap it. Reach into `item.<relation>.data`.
 - **`createOne` sends an array under the hood and item creation is batch-oriented.** Provide a single object to `createOne`; do not double-wrap in an array yourself.
-- **Deletes return `undefined` unless you pass `fields`.** If you need the deleted row back, request `fields`; otherwise expect no body.
+- **Deletes require `fields`.** A `deleteOne` / `deleteMany` with no `fields` fails — always pass `fields` (e.g. the primary key). The fields you select are what the delete returns.
 - **`fields` defaults to top-level primitives only.** Relations are not returned unless you select them. The SDK sends `fields: ['*']` by default (top-level), so request nested fields explicitly to get relations.
 - **Filter operators are underscore-prefixed.** `_eq _neq _lt _lte _gt _gte _in _nin _between _nbetween _contains _icontains _ncontains _nicontains _starts_with _nstarts_with _ends_with _nends_with _null`; combine with `_and _or _not`; for to-many relations use quantifiers `_some _every _none`. `_null` is only valid on nullable fields. Full table in [references/rest-api.md](references/rest-api.md).
 - **Sort uses the object form, not `-field`.** Use `sort: [{ <field>: { direction: 'asc' | 'desc' } }]`. The `-created_at` shorthand is rejected by the engine.
 - **No `search` param, no `page`/cursor pagination, no aggregates yet.** Paginate with `limit` (default 100) + `offset`. Aggregate/group params parse but are silently ignored today.
-- **Login is provider-scoped.** Password login is `POST /api/<project>/auth/providers/<name>/password/login` (where `<name>` is the configured provider's api name) — not `/api/auth/login`. The SDK does not implement login; supply a token/API key (see below).
-
 ## Connect to a Monospace instance
 
 You need three things: the **host** (engine base URL), the **project** slug (Monospace is multi-project; most data routes are `/api/<project>/...`), and a **token**. Create an API key in the Studio under **Account → Access → API Keys** (`/account/access#api-keys`), or use a user access token — both are JWTs and travel as `Authorization: Bearer <token>`. (For automation, the key endpoint is `POST /api/system/api-keys`.)

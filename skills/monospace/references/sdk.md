@@ -37,8 +37,8 @@ await client.articles.createOne({ title: 'Hello' });
 await client.articles.createMany([{ title: 'A' }, { title: 'B' }]);
 await client.articles.updateOne(id, { title: 'Updated' });
 await client.articles.updateMany({ filter: { … } }, { status: 'archived' });
-await client.articles.deleteOne(id);
-await client.articles.deleteMany({ filter: { … } });
+await client.articles.deleteOne(id, { fields: ['id'] });
+await client.articles.deleteMany({ filter: { … }, fields: ['id'] });
 ```
 CRUD methods are conditionally present per collection based on its capabilities. For collections you don't have generated types for, `$`-prefixed untyped variants exist as an escape hatch (e.g. `client.$readMany('collection', options)`).
 
@@ -48,7 +48,7 @@ Query options mirror the REST query engine: `fields` (array, nested selection vi
 
 - The top-level `{ data }` envelope is stripped for you, but **nested to-many relations stay enveloped** — read `item.<relation>.data`.
 - `createOne` is batch-oriented under the hood; pass a single object (don't pre-wrap in an array).
-- **Deletes return `undefined` unless you pass `fields`.** Request `fields` if you need the deleted row.
+- **Deletes require `fields`.** A delete with no `fields` fails — always pass `fields` (e.g. the key); the selected fields are what comes back.
 - `fields` defaults to top-level primitives; select nested fields to get relations.
 
 ## Errors
