@@ -1,0 +1,20 @@
+{
+	"name": "monospace-agent-skills",
+	"owner": {
+		"name": "Monospace",
+		"email": "hello@directus.io"
+	},
+	"metadata": {
+		"description": "Official Monospace agent skills — drive the Monospace REST API, SDK, and MCP server from an AI agent",
+		"version": "0.1.0"
+	},
+	"plugins": [
+		{
+			"name": "monospace",
+			"description": "Use when doing ANY task against a Monospace instance: reading, writing, querying, filtering, sorting, or paginating data via the Monospace REST API or the @monospace/sdk-client (createClient); generating typed SDK clients with `monospace generate`; connecting or using the Monospace MCP server; minting API keys; or inspecting collections, fields, and schema. NOT for legacy Directus v9 / @directus/sdk.",
+			"source": "./",
+			"strict": false,
+			"skills": ["./skills/monospace"]
+		}
+	]
+}

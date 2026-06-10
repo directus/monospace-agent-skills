@@ -1,0 +1,11 @@
+{
+	"mcpServers": {
+		"monospace": {
+			"type": "http",
+			"url": "https://YOUR_HOST/api/YOUR_PROJECT/mcp",
+			"headers": {
+				"Authorization": "Bearer ${MONOSPACE_API_KEY}"
+			}
+		}
+	}
+}
