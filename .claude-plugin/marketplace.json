@@ -2,7 +2,7 @@
 	"name": "monospace-agent-skills",
 	"owner": {
 		"name": "Monospace",
-		"email": "hello@directus.io"
+		"email": "info@directus.io"
 	},
 	"metadata": {
 		"description": "Official Monospace agent skills — drive the Monospace REST API, SDK, and MCP server from an AI agent",
