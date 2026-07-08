@@ -87,6 +87,7 @@ skills/monospace/
     data-workflows.md      # CRUD recipes with the traps annotated
     mcp-and-auth.md        # MCP tools, API keys, auth modes, .mcp.json
 .mcp.json                  # per-instance MCP config template
+.codex/config.toml         # Codex MCP server config template
 .claude-plugin/            # Claude Code plugin marketplace manifest
 ```
 

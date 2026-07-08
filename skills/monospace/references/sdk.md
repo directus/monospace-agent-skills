@@ -59,11 +59,11 @@ await client.Articles.createOne({ data: { title: 'Hello', status: 'draft' }, fie
 await client.Articles.createMany({ data: [{ title: 'A' }, { title: 'B' }], fields: ['id'] });
 await client.Articles.updateOne({ key: 1, data: { status: 'published' }, fields: ['id', 'status'] });
 await client.Articles.updateMany({ filter: { status: { _eq: 'draft' } }, data: { status: 'archived' }, fields: ['id'] });
-await client.Articles.deleteOne({ key: 1, fields: ['id'] });
-await client.Articles.deleteMany({ filter: { status: { _eq: 'archived' } }, fields: ['id'] });
+await client.Articles.deleteOne({ key: 1 });
+await client.Articles.deleteMany({ filter: { status: { _eq: 'archived' } } });
 ```
 
-- `key` = primary key; `data` = payload (single object for `createOne`/`updateOne`, array for `createMany`); `fields` selects what comes back.
+- `key` = primary key; `data` = payload (single object for `createOne`/`updateOne`, array for `createMany`); `fields` selects what comes back from reads, creates, updates, and deletes when provided.
 - CRUD methods are present per collection based on its capabilities.
 - `$`-prefixed untyped variants are an escape hatch when you have no generated types (e.g. `client.$readMany('collection', options)`).
 
@@ -79,7 +79,7 @@ The generated client **infers** result types from your `fields` selection. Never
   // articles: { id: string | null; title: string | null; status: string | null }[]
   ```
   Under the default `strictNull: true` every field is `| null`. Omitting `fields` returns all scalar fields and never relations — select relations explicitly.
-- **Relations follow cardinality** — to-one → `T | null` (access directly); to-many → `{ data: T[] }` (the envelope), e.g. `author.data`.
+- **Relations follow cardinality** — to-one → `T | null` (access directly); to-many → `{ data: T[] }` (the envelope), e.g. `comments.data`.
 - **Name a result type** (component props, return values) → import generated result types instead of writing an interface:
   ```ts
   import type { ArticleReadManyResultItem } from './generated/monospace';
@@ -111,7 +111,7 @@ Two type families per operation: `{Collection}{Op}Parameters` (query params only
 - **Collections are cased as named** — `client.Articles`, not `client.articles`.
 - The top-level `{ data }` envelope is stripped for you, but **nested to-many relations stay enveloped** — read `item.<relation>.data` (to-one is direct).
 - **`createOne` takes a single object under `data`** (`createMany` takes an array under `data`).
-- **Deletes require `fields`** — a delete with no `fields` fails; pass `fields` (e.g. the key); the selected fields are what come back.
+- **Deletes return no content unless `fields` is provided** — call `deleteOne({ key })` or `deleteMany({ filter })` for void deletes; pass `fields` when you need deleted rows back.
 - **`fields` omitted → all scalar fields, never relations** — select nested fields to get relations.
 
 ## Errors

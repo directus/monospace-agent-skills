@@ -4,24 +4,29 @@ How to call the Monospace HTTP API directly (raw REST, or from a non-TypeScript 
 
 ## Base URL, projects, content type
 
-Monospace is multi-project. Most data and schema routes are project-scoped under `/api/<project>/...`; instance-wide routes are under `/api/system/...`. Requests and responses are JSON (`Content-Type: application/json`).
+Monospace is multi-project. Most data and schema routes are project-scoped under `/api/<project>/...`; instance-wide routes are under `/api/system/...`, and authentication routes are under `/api/auth/...`. Requests and responses are JSON (`Content-Type: application/json`).
 
 ## Auth
 
-Send a JWT as `Authorization: Bearer <token>`. The token is either a user **access token** (from login) or an **API key** (create one in the Studio under Account → Access → API Keys; programmatically `POST /api/system/api-keys`) — both are JWTs. Cookie/session auth also exists for browser apps, but for agents and scripts use a Bearer token.
+Auth endpoints are instance-scoped, not project-scoped:
+- `POST /api/auth/providers/<name>/password/login` — authenticate with email/password for the named provider (commonly `local`); supports `session` cookie mode and `json` token-response mode.
+- `POST /api/auth/refresh` — obtain a new access token from a refresh token in a cookie or request body.
+- `POST /api/auth/logout` — invalidate the refresh token and clear session cookies.
 
-Password login is **provider-scoped**: `POST /api/<project>/auth/providers/<name>/password/login`, where `<name>` is the configured provider's api name. There is no flat `/api/auth/login`.
+Authenticated requests accept exactly one credential source: `Authorization: Bearer <token>`, `access_token=<token>` query parameter, or the session cookie. Prefer the `Authorization` header for agents/scripts; use the query parameter only for clients that cannot set headers, and use cookies for browser sessions.
+
+The token may be a user **access token** from login or an **API key** (create one in the Studio under Account → Access → API Keys; programmatically `POST /api/system/api-keys`) — both are JWTs.
 
 ## Response envelope
 
-Every response wraps payload in `data`:
+Non-empty JSON responses wrap payload in `data`; delete responses return no content unless `fields` selects rows to return:
 ```jsonc
 // GET /api/<project>/items/articles  ->
 { "data": [ { "id": "…", "title": "…" } ] }
 // GET /api/<project>/items/articles/<id>  ->
 { "data": { "id": "…", "title": "…" } }
 ```
-**Nested to-many relations are themselves enveloped** — e.g. `data.author.data` or `data.comments.data`. There is no top-level `meta` / total-count today.
+**Nested to-many relations are themselves enveloped** — e.g. `data.comments.data`. List responses can include a top-level `meta.totalCount` when requested with `meta=totalCount`.
 
 ## Query engine
 
@@ -52,14 +57,14 @@ Operators are type-gated by the engine — e.g. `_null` only applies to nullable
 sort[0][created_at][direction]=desc&sort[1][title][direction]=asc
 ```
 
-**limit / offset** — `limit` default 100, `offset` default 0. `limit=0` or `limit=-1` requests unlimited (subject to the configured max). Defaults/max are configurable via `MONOSPACE_QUERY_LIMIT_DEFAULT` / `MONOSPACE_QUERY_LIMIT_MAX`. There is no `page` param and no cursor pagination — page manually with `offset = (page - 1) * limit`.
+**limit / offset** — `limit` default 100, `offset` default 0. `limit=0` or `limit=-1` requests unlimited (subject to the configured max). Defaults/max are configurable via `MONOSPACE_QUERY_LIMIT_DEFAULT` / `MONOSPACE_QUERY_LIMIT_MAX`. There is no `page` param and no cursor pagination — page manually with `offset = (page - 1) * limit`. Request `meta=totalCount` on list queries when you need the total matching row count.
 
 **deep** — filter/sort/paginate a nested relation, with underscore-prefixed keys:
 ```
 deep[comments][_filter][approved][_eq]=true&deep[comments][_limit]=5
 ```
 
-**Not available yet:** `search`, aggregates / `group_by` (params parse but are ignored), top-level `meta`/total-count.
+**Not available yet:** `search`, aggregates / `group_by` (params parse but are ignored).
 
 ## Endpoints (project-scoped unless noted)
 
@@ -73,7 +78,9 @@ deep[comments][_filter][approved][_eq]=true&deep[comments][_limit]=5
 | OpenAPI (project) | `GET /api/<project>/openapi` |
 | OpenAPI (system) | `GET /api/system/openapi` |
 | Create API key (or use Studio → Account → Access) | `POST /api/system/api-keys` |
-| Password login | `POST /api/<project>/auth/providers/<name>/password/login` |
+| Password login | `POST /api/auth/providers/<name>/password/login` |
+| Refresh token | `POST /api/auth/refresh` |
+| Logout | `POST /api/auth/logout` |
 
 The engine exposes additional admin/schema/data-source/AI/audit endpoints beyond this core set; the OpenAPI doc is the authoritative, complete list for a given instance. Always check it for the exact route and payload of anything not above.
 
@@ -83,4 +90,4 @@ Error responses are JSON: `{ "message": string, "code"?: string, "meta"?: object
 
 ## OpenAPI 3.1
 
-The spec is generated dynamically from the live schema (so it always matches the instance) and carries a custom `x-monospace-mappings` extension that the SDK type generator consumes. Fetch it to confirm exact shapes, or feed it to `monospace generate` (see [sdk.md](sdk.md)).
+The spec is generated dynamically from the live schema (so it always matches the instance) and carries a custom `x-monospace-mappings` extension that the SDK type generator consumes. Fetch it to confirm exact shapes, or feed it to `npx @monospace/sdk generate` (see [sdk.md](sdk.md)).

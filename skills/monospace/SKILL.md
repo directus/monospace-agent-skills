@@ -1,6 +1,6 @@
 ---
 name: monospace
-description: "Use when doing ANY task against a Monospace instance. Triggers: reading, creating, updating, deleting, querying, filtering, sorting, or paginating data via the Monospace REST API or the @monospace/sdk (createClient, readMany, createOne, updateOne); generating a typed SDK client (`monospace generate`, monospace.config.ts); connecting to or using the Monospace MCP server; minting API keys or authenticating; inspecting collections, fields, relations, or schema. Do NOT use for legacy Directus v9 / @directus/sdk — Monospace is a different product with a different API and SDK."
+description: "Use when doing ANY task against a Monospace instance. Triggers: reading, creating, updating, deleting, querying, filtering, sorting, or paginating data via the Monospace REST API or the @monospace/sdk (createClient, readMany, createOne, updateOne); generating a typed SDK client (`npx @monospace/sdk generate`, monospace.config.ts); connecting to or using the Monospace MCP server; minting API keys or authenticating; inspecting collections, fields, relations, or schema. Do NOT use for legacy Directus v9 / @directus/sdk — Monospace is a different product with a different API and SDK."
 metadata:
   author: monospace
   version: "0.1.0"
@@ -13,10 +13,10 @@ Drive a Monospace instance from an agent: query and mutate data via the REST API
 ## Core principles
 
 **1. You almost certainly don't know this API. Don't guess — use the ground truth.**
-Monospace is not in most training data, so do not invent endpoints, SDK methods, or types from memory. The SDK is `@monospace/sdk` (`createClient` + per-collection delegates). Get the real shape from generated types (`monospace generate`) or the live OpenAPI doc (`GET /api/<project>/openapi`), plus the references below. (If you happen to know Directus: it is a different product — don't assume its APIs carry over.)
+Monospace is not in most training data, so do not invent endpoints, SDK methods, or types from memory. The SDK is `@monospace/sdk` (`createClient` + per-collection delegates). Get the real shape from generated types (`npx @monospace/sdk generate`) or the live OpenAPI doc (`GET /api/<project>/openapi`), plus the references below. (If you happen to know Directus: it is a different product — don't assume its APIs carry over.)
 
 **2. Generate types, then write against them.**
-The most reliable way to get the data shape right is to generate a typed client from the running instance: `monospace generate` reads the live OpenAPI document and emits a typed client matching *that instance's* schema. Prefer generated types over hand-written shapes. See [references/sdk.md](references/sdk.md).
+The most reliable way to get the data shape right is to generate a typed client from the running instance: `npx @monospace/sdk generate` reads the live OpenAPI document and emits a typed client matching *that instance's* schema. Prefer generated types over hand-written shapes. See [references/sdk.md](references/sdk.md).
 
 **3. Verify against current docs / OpenAPI before implementing.**
 For anything not covered here, fetch the canonical OpenAPI doc (`GET /api/<project>/openapi`, or `/api/system/openapi`) or the Monospace docs. The OpenAPI doc is generated from the live schema, so it is always correct for the instance.
@@ -32,16 +32,16 @@ If an approach fails 2-3 times, stop and reconsider — check the error body (it
 These are verified, easy-to-miss behaviors. Getting them wrong fails silently.
 
 - **Responses are enveloped as `{ "data": ... }`.** A list returns `{ data: [...] }`, a single item `{ data: {...} }`. The SDK strips the *top-level* envelope for you, but **nested to-many relations stay enveloped** — relation data sits under `relation.data`, and the SDK does NOT unwrap it. Reach into `item.<relation>.data` (to-one relations are accessed directly).
-- **Methods take a single options object, not positional args.** `readOne`/`updateOne`/`deleteOne` take `{ key, ... }`; `createOne({ data: <object>, fields })` (single object under `data`); `createMany`/`updateMany`/`deleteMany` take `{ data | filter, fields }`. There is no `readOne(id)` form. Collections are cased as named (`client.Articles`, not `client.articles`).
-- **Deletes require `fields`.** `deleteOne({ key, fields })` / `deleteMany({ filter, fields })` with no `fields` fails — always pass `fields`; the selected fields are what the delete returns.
+- **Methods take a single options object, not positional args.** `readOne`/`updateOne`/`deleteOne` take `{ key, ... }`; `createOne({ data: <object>, fields })` (single object under `data`); `createMany` takes `{ data, fields }`; `updateMany` takes `{ filter, data, fields }`; `deleteMany` takes `{ filter, fields? }`. There is no `readOne(id)` form. Collections are cased as named (`client.Articles`, not `client.articles`).
+- **Deletes return no content unless `fields` is provided.** `deleteOne({ key })` / `deleteMany({ filter })` return void; pass `fields` only when you need deleted rows back.
 - **`fields` defaults to top-level primitives only.** Relations are not returned unless you select them. The SDK sends `fields: ['*']` by default (top-level), so request nested fields explicitly to get relations.
 - **Filter operators are underscore-prefixed.** `_eq _neq _lt _lte _gt _gte _in _nin _between _nbetween _contains _icontains _ncontains _nicontains _starts_with _nstarts_with _ends_with _nends_with _null`; combine with `_and _or _not`; for to-many relations use quantifiers `_some _every _none`. `_null` is only valid on nullable fields. Full table in [references/rest-api.md](references/rest-api.md).
 - **Sort uses the object form, not `-field`.** Use `sort: [{ <field>: { direction: 'asc' | 'desc' } }]`. The `-created_at` shorthand is rejected by the engine.
-- **No `search` param, no `page`/cursor pagination, no aggregates yet.** Paginate with `limit` (default 100) + `offset`. Aggregate/group params parse but are silently ignored today.
+- **No `search` param, no `page`/cursor pagination, no aggregates yet.** Paginate with `limit` (default 100) + `offset`; request `meta=totalCount` when you need the total matching row count. Aggregate/group params parse but are silently ignored today.
 
 ## Connect to a Monospace instance
 
-You need three things: the **host** (engine base URL), the **project** slug (Monospace is multi-project; most data routes are `/api/<project>/...`), and a **token**. Create an API key in the Studio under **Account → Access → API Keys** (`/account/access#api-keys`), or use a user access token — both are JWTs and travel as `Authorization: Bearer <token>`. (For automation, the key endpoint is `POST /api/system/api-keys`.)
+You need three things: the **host** (engine base URL), the **project** slug (Monospace is multi-project; most data routes are `/api/<project>/...`), and a **token**. Create an API key in the Studio under **Account → Access → API Keys** (`/account/access#api-keys`; API endpoint `POST /api/system/api-keys`), or log in with `POST /api/auth/providers/<name>/password/login` for a user access token. Prefer `Authorization: Bearer <token>` for agents/scripts; the API also accepts an `access_token` query parameter or session cookie, but send only one credential source per request.
 
 Two ways an agent works with the data:
 - **MCP server** — best for agentic CRUD + schema work inside a chat/coding agent. Set it up below.
@@ -52,7 +52,7 @@ Two ways an agent works with the data:
 The Monospace MCP server is served by the engine, **per project**, over streamable-HTTP.
 
 - **Endpoint:** `POST https://<host>/api/<project>/mcp` (per-project; POST only; protocol `2025-11-25`).
-- **Auth:** Bearer JWT only (API key or user access token). Session cookies are ignored. The project needs the `ai:mcp` entitlement, and each tool runs under the token's RBAC.
+- **Auth:** `Authorization: Bearer <token>` or, only when headers are unavailable, `access_token=<token>` query parameter populated from a secret store (API key or user access token). Do not send both. Use session cookies for browser flows, not agent config. The project needs the `ai:mcp` entitlement, and each tool runs under the token's RBAC.
 
 Config (`.mcp.json` at the project root):
 ```jsonc
@@ -69,7 +69,7 @@ Config (`.mcp.json` at the project root):
 
 **Tools exposed (7):** `list_items`, `create_items`, `update_item`, `delete_item` (CRUD under the caller's permissions), `read_schema` (needs `dataModel:read`), `read_data_sources` (`dataModel:read` + `dataSource:read`), and `mutate_schema` (`dataModel:edit` — can be destructive).
 
-**Troubleshooting:** `curl -s -o /dev/null -w "%{http_code}" -X POST https://<host>/api/<project>/mcp` — a `401` means it's up but unauthenticated (expected without a token); a hang or refusal means it's unreachable. If tools aren't visible: confirm the URL includes the right `<project>`, the `Authorization` header carries a valid Bearer token, and the project has `ai:mcp` enabled. Full details + RBAC and the per-tool input schemas: [references/mcp-and-auth.md](references/mcp-and-auth.md).
+**Troubleshooting:** `curl -s -o /dev/null -w "%{http_code}" -X POST https://<host>/api/<project>/mcp` — a `401` means it's up but unauthenticated (expected without a token); `403` means the credential is valid but forbidden by RBAC or missing entitlement; `404` means the path is wrong; a hang or refusal means it's unreachable. If tools aren't visible: confirm the URL includes the right `<project>`, the credential is present (`Authorization: Bearer` header or `access_token` query parameter, not both), and the project has `ai:mcp` enabled. Full details + RBAC and the per-tool input schemas: [references/mcp-and-auth.md](references/mcp-and-auth.md).
 
 ## Generate a typed SDK client (codegen)
 
