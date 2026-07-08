@@ -68,9 +68,9 @@ Update inputs make every field optional — include only what you want to change
 ## Delete
 
 ```ts
-// Delete requires `fields` — a delete with none fails. Pass at least the key; the selected fields are returned.
-const removed = await client.Articles.deleteOne({ key: 1, fields: ['id', 'title'] });
-await client.Articles.deleteMany({ filter: { status: { _eq: 'archived' } }, fields: ['id'] });
+// Deletes return no content.
+await client.Articles.deleteOne({ key: 1 });
+await client.Articles.deleteMany({ filter: { status: { _eq: 'archived' } } });
 ```
 
 ## Inspect schema before mutating
