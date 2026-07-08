@@ -120,7 +120,7 @@ The SDK maps engine errors to typed exceptions: `MonospaceError` (base, carries 
 
 ## Codegen reference
 
-- **CLI** (bin is `monospace`; `npx @monospace/sdk <cmd>` runs it without a global install): `init`, `generate`, `login`, `logout`, `validate`.
+- **CLI** (bin is `monospace-sdk`; `npx @monospace/sdk <cmd>` runs it without a global install): `init`, `generate`, `login`, `logout`, `validate`.
 - **Config** (`monospace.config.ts` / `.js`, discovered via jiti):
   - **Remote mode** — `generate` fetches `GET /api/<project>/openapi` (auth required) via your keyring token or `MONOSPACE_API_KEY`.
   - **Local mode** — set `input` to a saved OpenAPI JSON file; no network. (Hand-authored; `init` scaffolds remote only.)

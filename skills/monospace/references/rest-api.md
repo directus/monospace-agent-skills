@@ -83,4 +83,4 @@ Error responses are JSON: `{ "message": string, "code"?: string, "meta"?: object
 
 ## OpenAPI 3.1
 
-The spec is generated dynamically from the live schema (so it always matches the instance) and carries a custom `x-monospace-mappings` extension that the SDK type generator consumes. Fetch it to confirm exact shapes, or feed it to `monospace generate` (see [sdk.md](sdk.md)).
+The spec is generated dynamically from the live schema (so it always matches the instance) and carries a custom `x-monospace-mappings` extension that the SDK type generator consumes. Fetch it to confirm exact shapes, or feed it to `monospace-sdk generate` (see [sdk.md](sdk.md)).

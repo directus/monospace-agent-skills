@@ -1,6 +1,6 @@
 ---
 name: monospace
-description: "Use when doing ANY task against a Monospace instance. Triggers: reading, creating, updating, deleting, querying, filtering, sorting, or paginating data via the Monospace REST API or the @monospace/sdk (createClient, readMany, createOne, updateOne); generating a typed SDK client (`monospace generate`, monospace.config.ts); connecting to or using the Monospace MCP server; minting API keys or authenticating; inspecting collections, fields, relations, or schema. Do NOT use for legacy Directus v9 / @directus/sdk — Monospace is a different product with a different API and SDK."
+description: "Use when doing ANY task against a Monospace instance. Triggers: reading, creating, updating, deleting, querying, filtering, sorting, or paginating data via the Monospace REST API or the @monospace/sdk (createClient, readMany, createOne, updateOne); generating a typed SDK client (`monospace-sdk generate`, monospace.config.ts); connecting to or using the Monospace MCP server; minting API keys or authenticating; inspecting collections, fields, relations, or schema. Do NOT use for legacy Directus v9 / @directus/sdk — Monospace is a different product with a different API and SDK."
 metadata:
   author: monospace
   version: "0.1.0"
@@ -13,10 +13,10 @@ Drive a Monospace instance from an agent: query and mutate data via the REST API
 ## Core principles
 
 **1. You almost certainly don't know this API. Don't guess — use the ground truth.**
-Monospace is not in most training data, so do not invent endpoints, SDK methods, or types from memory. The SDK is `@monospace/sdk` (`createClient` + per-collection delegates). Get the real shape from generated types (`monospace generate`) or the live OpenAPI doc (`GET /api/<project>/openapi`), plus the references below. (If you happen to know Directus: it is a different product — don't assume its APIs carry over.)
+Monospace is not in most training data, so do not invent endpoints, SDK methods, or types from memory. The SDK is `@monospace/sdk` (`createClient` + per-collection delegates). Get the real shape from generated types (`monospace-sdk generate`) or the live OpenAPI doc (`GET /api/<project>/openapi`), plus the references below. (If you happen to know Directus: it is a different product — don't assume its APIs carry over.)
 
 **2. Generate types, then write against them.**
-The most reliable way to get the data shape right is to generate a typed client from the running instance: `monospace generate` reads the live OpenAPI document and emits a typed client matching *that instance's* schema. Prefer generated types over hand-written shapes. See [references/sdk.md](references/sdk.md).
+The most reliable way to get the data shape right is to generate a typed client from the running instance: `monospace-sdk generate` reads the live OpenAPI document and emits a typed client matching *that instance's* schema. Prefer generated types over hand-written shapes. See [references/sdk.md](references/sdk.md).
 
 **3. Verify against current docs / OpenAPI before implementing.**
 For anything not covered here, fetch the canonical OpenAPI doc (`GET /api/<project>/openapi`, or `/api/system/openapi`) or the Monospace docs. The OpenAPI doc is generated from the live schema, so it is always correct for the instance.
