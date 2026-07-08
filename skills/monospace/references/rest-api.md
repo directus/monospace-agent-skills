@@ -4,13 +4,18 @@ How to call the Monospace HTTP API directly (raw REST, or from a non-TypeScript 
 
 ## Base URL, projects, content type
 
-Monospace is multi-project. Most data and schema routes are project-scoped under `/api/<project>/...`; instance-wide routes are under `/api/system/...`. Requests and responses are JSON (`Content-Type: application/json`).
+Monospace is multi-project. Most data and schema routes are project-scoped under `/api/<project>/...`; instance-wide routes are under `/api/system/...`, and authentication routes are under `/api/auth/...`. Requests and responses are JSON (`Content-Type: application/json`).
 
 ## Auth
 
-Send a JWT as `Authorization: Bearer <token>`. The token is either a user **access token** (from login) or an **API key** (create one in the Studio under Account → Access → API Keys; programmatically `POST /api/system/api-keys`) — both are JWTs. Cookie/session auth also exists for browser apps, but for agents and scripts use a Bearer token.
+Auth endpoints are flat system endpoints, not project-scoped:
+- `POST /api/auth/login` — authenticate with email/password; supports `session` cookie mode and `json` token-response mode.
+- `POST /api/auth/refresh` — obtain a new access token from a refresh token in a cookie or request body.
+- `POST /api/auth/logout` — invalidate the refresh token and clear session cookies.
 
-Password login is **provider-scoped**: `POST /api/<project>/auth/providers/<name>/password/login`, where `<name>` is the configured provider's api name. There is no flat `/api/auth/login`.
+Authenticated requests accept exactly one credential source: `Authorization: Bearer <token>`, `access_token=<token>` query parameter, or the session cookie. Prefer the `Authorization` header for agents/scripts; use the query parameter only for clients that cannot set headers, and use cookies for browser sessions.
+
+The token may be a user **access token** from login or an **API key** (create one in the Studio under Account → Access → API Keys; programmatically `POST /api/system/api-keys`) — both are JWTs.
 
 ## Response envelope
 
@@ -73,7 +78,9 @@ deep[comments][_filter][approved][_eq]=true&deep[comments][_limit]=5
 | OpenAPI (project) | `GET /api/<project>/openapi` |
 | OpenAPI (system) | `GET /api/system/openapi` |
 | Create API key (or use Studio → Account → Access) | `POST /api/system/api-keys` |
-| Password login | `POST /api/<project>/auth/providers/<name>/password/login` |
+| Login | `POST /api/auth/login` |
+| Refresh token | `POST /api/auth/refresh` |
+| Logout | `POST /api/auth/logout` |
 
 The engine exposes additional admin/schema/data-source/AI/audit endpoints beyond this core set; the OpenAPI doc is the authoritative, complete list for a given instance. Always check it for the exact route and payload of anything not above.
 

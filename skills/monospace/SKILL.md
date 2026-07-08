@@ -41,7 +41,7 @@ These are verified, easy-to-miss behaviors. Getting them wrong fails silently.
 
 ## Connect to a Monospace instance
 
-You need three things: the **host** (engine base URL), the **project** slug (Monospace is multi-project; most data routes are `/api/<project>/...`), and a **token**. Create an API key in the Studio under **Account → Access → API Keys** (`/account/access#api-keys`), or use a user access token — both are JWTs and travel as `Authorization: Bearer <token>`. (For automation, the key endpoint is `POST /api/system/api-keys`.)
+You need three things: the **host** (engine base URL), the **project** slug (Monospace is multi-project; most data routes are `/api/<project>/...`), and a **token**. Create an API key in the Studio under **Account → Access → API Keys** (`/account/access#api-keys`; API endpoint `POST /api/system/api-keys`), or log in with `POST /api/auth/login` for a user access token. Prefer `Authorization: Bearer <token>` for agents/scripts; the API also accepts an `access_token` query parameter or session cookie, but send only one credential source per request.
 
 Two ways an agent works with the data:
 - **MCP server** — best for agentic CRUD + schema work inside a chat/coding agent. Set it up below.
@@ -52,7 +52,7 @@ Two ways an agent works with the data:
 The Monospace MCP server is served by the engine, **per project**, over streamable-HTTP.
 
 - **Endpoint:** `POST https://<host>/api/<project>/mcp` (per-project; POST only; protocol `2025-11-25`).
-- **Auth:** Bearer JWT only (API key or user access token). Session cookies are ignored. The project needs the `ai:mcp` entitlement, and each tool runs under the token's RBAC.
+- **Auth:** `Authorization: Bearer <token>` or, for URL-only clients, `access_token=<token>` query parameter (API key or user access token). Do not send both. Use session cookies for browser flows, not agent config. The project needs the `ai:mcp` entitlement, and each tool runs under the token's RBAC.
 
 Config (`.mcp.json` at the project root):
 ```jsonc
@@ -69,7 +69,7 @@ Config (`.mcp.json` at the project root):
 
 **Tools exposed (7):** `list_items`, `create_items`, `update_item`, `delete_item` (CRUD under the caller's permissions), `read_schema` (needs `dataModel:read`), `read_data_sources` (`dataModel:read` + `dataSource:read`), and `mutate_schema` (`dataModel:edit` — can be destructive).
 
-**Troubleshooting:** `curl -s -o /dev/null -w "%{http_code}" -X POST https://<host>/api/<project>/mcp` — a `401` means it's up but unauthenticated (expected without a token); a hang or refusal means it's unreachable. If tools aren't visible: confirm the URL includes the right `<project>`, the `Authorization` header carries a valid Bearer token, and the project has `ai:mcp` enabled. Full details + RBAC and the per-tool input schemas: [references/mcp-and-auth.md](references/mcp-and-auth.md).
+**Troubleshooting:** `curl -s -o /dev/null -w "%{http_code}" -X POST https://<host>/api/<project>/mcp` — a `403` means it's up but unauthenticated (expected without a token); `404` means the path is wrong; a hang or refusal means it's unreachable. If tools aren't visible: confirm the URL includes the right `<project>`, the credential is present (`Authorization: Bearer` header or `access_token` query parameter, not both), and the project has `ai:mcp` enabled. Full details + RBAC and the per-tool input schemas: [references/mcp-and-auth.md](references/mcp-and-auth.md).
 
 ## Generate a typed SDK client (codegen)
 
