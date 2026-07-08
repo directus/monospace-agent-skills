@@ -6,7 +6,7 @@ How to connect an agent to the Monospace MCP server, what it exposes, and how au
 
 Everything authenticates with a token. Two kinds are interchangeable on the wire:
 - **API key** — create one in the Studio under **Account → Access → API Keys** (`/account/access#api-keys`); for automation it is also available as `POST /api/system/api-keys`. Best for agents. Carries its own RBAC.
-- **User access token** — obtained by logging in (`POST /api/auth/login`). Carries the user's RBAC.
+- **User access token** — obtained by logging in (`POST /api/auth/providers/<name>/password/login`, commonly the `local` provider). Carries the user's RBAC.
 
 Authenticated API requests accept exactly one credential source: `Authorization: Bearer <token>`, `access_token=<token>` query parameter, or the session cookie. For MCP, prefer the `Authorization` header; query-string tokens are a fallback only for clients that cannot set headers, because URLs may be stored in config or logs. Keep tokens out of source; use an env var (`MONOSPACE_API_KEY`) or your agent's secret store, including for URL token interpolation. Use cookies for browser sessions, not agent config.
 

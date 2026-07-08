@@ -63,7 +63,7 @@ await client.Articles.deleteOne({ key: 1 });
 await client.Articles.deleteMany({ filter: { status: { _eq: 'archived' } } });
 ```
 
-- `key` = primary key; `data` = payload (single object for `createOne`/`updateOne`, array for `createMany`); `fields` selects what comes back from reads, creates, and updates.
+- `key` = primary key; `data` = payload (single object for `createOne`/`updateOne`, array for `createMany`); `fields` selects what comes back from reads, creates, updates, and deletes when provided.
 - CRUD methods are present per collection based on its capabilities.
 - `$`-prefixed untyped variants are an escape hatch when you have no generated types (e.g. `client.$readMany('collection', options)`).
 
@@ -111,7 +111,7 @@ Two type families per operation: `{Collection}{Op}Parameters` (query params only
 - **Collections are cased as named** — `client.Articles`, not `client.articles`.
 - The top-level `{ data }` envelope is stripped for you, but **nested to-many relations stay enveloped** — read `item.<relation>.data` (to-one is direct).
 - **`createOne` takes a single object under `data`** (`createMany` takes an array under `data`).
-- **Deletes return no content** — call `deleteOne({ key })` or `deleteMany({ filter })`; no `fields` required and no deleted rows come back.
+- **Deletes return no content unless `fields` is provided** — call `deleteOne({ key })` or `deleteMany({ filter })` for void deletes; pass `fields` when you need deleted rows back.
 - **`fields` omitted → all scalar fields, never relations** — select nested fields to get relations.
 
 ## Errors
@@ -120,7 +120,7 @@ The SDK maps engine errors to typed exceptions: `MonospaceError` (base, carries 
 
 ## Codegen reference
 
-- **CLI** (bin is `monospace-sdk`; `npx @monospace/sdk <cmd>` runs it without a global install): `init`, `generate`, `login`, `logout`, `validate`.
+- **CLI** (bin is `monospace`; `npx @monospace/sdk <cmd>` runs it without a global install): `init`, `generate`, `login`, `logout`, `validate`.
 - **Config** (`monospace.config.ts` / `.js`, discovered via jiti):
   - **Remote mode** — `generate` fetches `GET /api/<project>/openapi` (auth required) via your keyring token or `MONOSPACE_API_KEY`.
   - **Local mode** — set `input` to a saved OpenAPI JSON file; no network. (Hand-authored; `init` scaffolds remote only.)

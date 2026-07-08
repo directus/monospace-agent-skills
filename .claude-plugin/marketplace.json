@@ -11,7 +11,7 @@
 	"plugins": [
 		{
 			"name": "monospace",
-			"description": "Use when doing ANY task against a Monospace instance: reading, writing, querying, filtering, sorting, or paginating data via the Monospace REST API or the @monospace/sdk (createClient); generating typed SDK clients with `monospace-sdk generate`; connecting or using the Monospace MCP server; minting API keys; or inspecting collections, fields, and schema. NOT for legacy Directus v9 / @directus/sdk.",
+			"description": "Use when doing ANY task against a Monospace instance: reading, writing, querying, filtering, sorting, or paginating data via the Monospace REST API or the @monospace/sdk (createClient); generating typed SDK clients with `npx @monospace/sdk generate`; connecting or using the Monospace MCP server; minting API keys; or inspecting collections, fields, and schema. NOT for legacy Directus v9 / @directus/sdk.",
 			"source": "./",
 			"strict": false,
 			"skills": ["./skills/monospace"]

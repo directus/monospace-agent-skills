@@ -8,8 +8,8 @@ Monospace is multi-project. Most data and schema routes are project-scoped under
 
 ## Auth
 
-Auth endpoints are flat system endpoints, not project-scoped:
-- `POST /api/auth/login` — authenticate with email/password; supports `session` cookie mode and `json` token-response mode.
+Auth endpoints are instance-scoped, not project-scoped:
+- `POST /api/auth/providers/<name>/password/login` — authenticate with email/password for the named provider (commonly `local`); supports `session` cookie mode and `json` token-response mode.
 - `POST /api/auth/refresh` — obtain a new access token from a refresh token in a cookie or request body.
 - `POST /api/auth/logout` — invalidate the refresh token and clear session cookies.
 
@@ -19,7 +19,7 @@ The token may be a user **access token** from login or an **API key** (create on
 
 ## Response envelope
 
-Non-empty JSON responses wrap payload in `data`; delete responses return no content:
+Non-empty JSON responses wrap payload in `data`; delete responses return no content unless `fields` selects rows to return:
 ```jsonc
 // GET /api/<project>/items/articles  ->
 { "data": [ { "id": "…", "title": "…" } ] }
@@ -78,7 +78,7 @@ deep[comments][_filter][approved][_eq]=true&deep[comments][_limit]=5
 | OpenAPI (project) | `GET /api/<project>/openapi` |
 | OpenAPI (system) | `GET /api/system/openapi` |
 | Create API key (or use Studio → Account → Access) | `POST /api/system/api-keys` |
-| Login | `POST /api/auth/login` |
+| Password login | `POST /api/auth/providers/<name>/password/login` |
 | Refresh token | `POST /api/auth/refresh` |
 | Logout | `POST /api/auth/logout` |
 
@@ -90,4 +90,4 @@ Error responses are JSON: `{ "message": string, "code"?: string, "meta"?: object
 
 ## OpenAPI 3.1
 
-The spec is generated dynamically from the live schema (so it always matches the instance) and carries a custom `x-monospace-mappings` extension that the SDK type generator consumes. Fetch it to confirm exact shapes, or feed it to `monospace-sdk generate` (see [sdk.md](sdk.md)).
+The spec is generated dynamically from the live schema (so it always matches the instance) and carries a custom `x-monospace-mappings` extension that the SDK type generator consumes. Fetch it to confirm exact shapes, or feed it to `npx @monospace/sdk generate` (see [sdk.md](sdk.md)).

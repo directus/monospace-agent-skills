@@ -1,6 +1,6 @@
 ---
 name: monospace
-description: "Use when doing ANY task against a Monospace instance. Triggers: reading, creating, updating, deleting, querying, filtering, sorting, or paginating data via the Monospace REST API or the @monospace/sdk (createClient, readMany, createOne, updateOne); generating a typed SDK client (`monospace-sdk generate`, monospace.config.ts); connecting to or using the Monospace MCP server; minting API keys or authenticating; inspecting collections, fields, relations, or schema. Do NOT use for legacy Directus v9 / @directus/sdk — Monospace is a different product with a different API and SDK."
+description: "Use when doing ANY task against a Monospace instance. Triggers: reading, creating, updating, deleting, querying, filtering, sorting, or paginating data via the Monospace REST API or the @monospace/sdk (createClient, readMany, createOne, updateOne); generating a typed SDK client (`npx @monospace/sdk generate`, monospace.config.ts); connecting to or using the Monospace MCP server; minting API keys or authenticating; inspecting collections, fields, relations, or schema. Do NOT use for legacy Directus v9 / @directus/sdk — Monospace is a different product with a different API and SDK."
 metadata:
   author: monospace
   version: "0.1.0"
@@ -13,10 +13,10 @@ Drive a Monospace instance from an agent: query and mutate data via the REST API
 ## Core principles
 
 **1. You almost certainly don't know this API. Don't guess — use the ground truth.**
-Monospace is not in most training data, so do not invent endpoints, SDK methods, or types from memory. The SDK is `@monospace/sdk` (`createClient` + per-collection delegates). Get the real shape from generated types (`monospace-sdk generate`) or the live OpenAPI doc (`GET /api/<project>/openapi`), plus the references below. (If you happen to know Directus: it is a different product — don't assume its APIs carry over.)
+Monospace is not in most training data, so do not invent endpoints, SDK methods, or types from memory. The SDK is `@monospace/sdk` (`createClient` + per-collection delegates). Get the real shape from generated types (`npx @monospace/sdk generate`) or the live OpenAPI doc (`GET /api/<project>/openapi`), plus the references below. (If you happen to know Directus: it is a different product — don't assume its APIs carry over.)
 
 **2. Generate types, then write against them.**
-The most reliable way to get the data shape right is to generate a typed client from the running instance: `monospace-sdk generate` reads the live OpenAPI document and emits a typed client matching *that instance's* schema. Prefer generated types over hand-written shapes. See [references/sdk.md](references/sdk.md).
+The most reliable way to get the data shape right is to generate a typed client from the running instance: `npx @monospace/sdk generate` reads the live OpenAPI document and emits a typed client matching *that instance's* schema. Prefer generated types over hand-written shapes. See [references/sdk.md](references/sdk.md).
 
 **3. Verify against current docs / OpenAPI before implementing.**
 For anything not covered here, fetch the canonical OpenAPI doc (`GET /api/<project>/openapi`, or `/api/system/openapi`) or the Monospace docs. The OpenAPI doc is generated from the live schema, so it is always correct for the instance.
@@ -32,8 +32,8 @@ If an approach fails 2-3 times, stop and reconsider — check the error body (it
 These are verified, easy-to-miss behaviors. Getting them wrong fails silently.
 
 - **Responses are enveloped as `{ "data": ... }`.** A list returns `{ data: [...] }`, a single item `{ data: {...} }`. The SDK strips the *top-level* envelope for you, but **nested to-many relations stay enveloped** — relation data sits under `relation.data`, and the SDK does NOT unwrap it. Reach into `item.<relation>.data` (to-one relations are accessed directly).
-- **Methods take a single options object, not positional args.** `readOne`/`updateOne`/`deleteOne` take `{ key, ... }`; `createOne({ data: <object>, fields })` (single object under `data`); `createMany` takes `{ data, fields }`; `updateMany` takes `{ filter, data, fields }`; `deleteMany` takes `{ filter }`. There is no `readOne(id)` form. Collections are cased as named (`client.Articles`, not `client.articles`).
-- **Deletes return no content.** `deleteOne({ key })` / `deleteMany({ filter })`; do not require `fields`, and do not return selected deleted rows.
+- **Methods take a single options object, not positional args.** `readOne`/`updateOne`/`deleteOne` take `{ key, ... }`; `createOne({ data: <object>, fields })` (single object under `data`); `createMany` takes `{ data, fields }`; `updateMany` takes `{ filter, data, fields }`; `deleteMany` takes `{ filter, fields? }`. There is no `readOne(id)` form. Collections are cased as named (`client.Articles`, not `client.articles`).
+- **Deletes return no content unless `fields` is provided.** `deleteOne({ key })` / `deleteMany({ filter })` return void; pass `fields` only when you need deleted rows back.
 - **`fields` defaults to top-level primitives only.** Relations are not returned unless you select them. The SDK sends `fields: ['*']` by default (top-level), so request nested fields explicitly to get relations.
 - **Filter operators are underscore-prefixed.** `_eq _neq _lt _lte _gt _gte _in _nin _between _nbetween _contains _icontains _ncontains _nicontains _starts_with _nstarts_with _ends_with _nends_with _null`; combine with `_and _or _not`; for to-many relations use quantifiers `_some _every _none`. `_null` is only valid on nullable fields. Full table in [references/rest-api.md](references/rest-api.md).
 - **Sort uses the object form, not `-field`.** Use `sort: [{ <field>: { direction: 'asc' | 'desc' } }]`. The `-created_at` shorthand is rejected by the engine.
@@ -41,7 +41,7 @@ These are verified, easy-to-miss behaviors. Getting them wrong fails silently.
 
 ## Connect to a Monospace instance
 
-You need three things: the **host** (engine base URL), the **project** slug (Monospace is multi-project; most data routes are `/api/<project>/...`), and a **token**. Create an API key in the Studio under **Account → Access → API Keys** (`/account/access#api-keys`; API endpoint `POST /api/system/api-keys`), or log in with `POST /api/auth/login` for a user access token. Prefer `Authorization: Bearer <token>` for agents/scripts; the API also accepts an `access_token` query parameter or session cookie, but send only one credential source per request.
+You need three things: the **host** (engine base URL), the **project** slug (Monospace is multi-project; most data routes are `/api/<project>/...`), and a **token**. Create an API key in the Studio under **Account → Access → API Keys** (`/account/access#api-keys`; API endpoint `POST /api/system/api-keys`), or log in with `POST /api/auth/providers/<name>/password/login` for a user access token. Prefer `Authorization: Bearer <token>` for agents/scripts; the API also accepts an `access_token` query parameter or session cookie, but send only one credential source per request.
 
 Two ways an agent works with the data:
 - **MCP server** — best for agentic CRUD + schema work inside a chat/coding agent. Set it up below.
@@ -52,7 +52,7 @@ Two ways an agent works with the data:
 The Monospace MCP server is served by the engine, **per project**, over streamable-HTTP.
 
 - **Endpoint:** `POST https://<host>/api/<project>/mcp` (per-project; POST only; protocol `2025-11-25`).
-- **Auth:** `Authorization: Bearer <token>` or, for URL-only clients, `access_token=<token>` query parameter (API key or user access token). Do not send both. Use session cookies for browser flows, not agent config. The project needs the `ai:mcp` entitlement, and each tool runs under the token's RBAC.
+- **Auth:** `Authorization: Bearer <token>` or, only when headers are unavailable, `access_token=<token>` query parameter populated from a secret store (API key or user access token). Do not send both. Use session cookies for browser flows, not agent config. The project needs the `ai:mcp` entitlement, and each tool runs under the token's RBAC.
 
 Config (`.mcp.json` at the project root):
 ```jsonc

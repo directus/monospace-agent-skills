@@ -68,7 +68,7 @@ Update inputs make every field optional — include only what you want to change
 ## Delete
 
 ```ts
-// Deletes return no content.
+// Deletes return no content unless you pass `fields` to return deleted rows.
 await client.Articles.deleteOne({ key: 1 });
 await client.Articles.deleteMany({ filter: { status: { _eq: 'archived' } } });
 ```
