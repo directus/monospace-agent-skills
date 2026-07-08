@@ -1,0 +1,3 @@
+[mcp_servers.monospace]
+url = "https://YOUR_HOST/api/YOUR_PROJECT/mcp"
+bearer_token_env_var = "MONOSPACE_API_KEY"
