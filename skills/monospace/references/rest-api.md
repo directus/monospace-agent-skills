@@ -21,7 +21,7 @@ Every response wraps payload in `data`:
 // GET /api/<project>/items/articles/<id>  ->
 { "data": { "id": "…", "title": "…" } }
 ```
-**Nested to-many relations are themselves enveloped** — e.g. `data.author.data` or `data.comments.data`. There is no top-level `meta` / total-count today.
+**Nested to-many relations are themselves enveloped** — e.g. `data.author.data` or `data.comments.data`. List responses can include a top-level `meta.totalCount` when requested with `meta=totalCount`.
 
 ## Query engine
 
@@ -52,14 +52,14 @@ Operators are type-gated by the engine — e.g. `_null` only applies to nullable
 sort[0][created_at][direction]=desc&sort[1][title][direction]=asc
 ```
 
-**limit / offset** — `limit` default 100, `offset` default 0. `limit=0` or `limit=-1` requests unlimited (subject to the configured max). Defaults/max are configurable via `MONOSPACE_QUERY_LIMIT_DEFAULT` / `MONOSPACE_QUERY_LIMIT_MAX`. There is no `page` param and no cursor pagination — page manually with `offset = (page - 1) * limit`.
+**limit / offset** — `limit` default 100, `offset` default 0. `limit=0` or `limit=-1` requests unlimited (subject to the configured max). Defaults/max are configurable via `MONOSPACE_QUERY_LIMIT_DEFAULT` / `MONOSPACE_QUERY_LIMIT_MAX`. There is no `page` param and no cursor pagination — page manually with `offset = (page - 1) * limit`. Request `meta=totalCount` on list queries when you need the total matching row count.
 
 **deep** — filter/sort/paginate a nested relation, with underscore-prefixed keys:
 ```
 deep[comments][_filter][approved][_eq]=true&deep[comments][_limit]=5
 ```
 
-**Not available yet:** `search`, aggregates / `group_by` (params parse but are ignored), top-level `meta`/total-count.
+**Not available yet:** `search`, aggregates / `group_by` (params parse but are ignored).
 
 ## Endpoints (project-scoped unless noted)
 
