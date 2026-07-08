@@ -69,7 +69,7 @@ Config (`.mcp.json` at the project root):
 
 **Tools exposed (7):** `list_items`, `create_items`, `update_item`, `delete_item` (CRUD under the caller's permissions), `read_schema` (needs `dataModel:read`), `read_data_sources` (`dataModel:read` + `dataSource:read`), and `mutate_schema` (`dataModel:edit` — can be destructive).
 
-**Troubleshooting:** `curl -s -o /dev/null -w "%{http_code}" -X POST https://<host>/api/<project>/mcp` — a `403` means it's up but unauthenticated (expected without a token); `404` means the path is wrong; a hang or refusal means it's unreachable. If tools aren't visible: confirm the URL includes the right `<project>`, the credential is present (`Authorization: Bearer` header or `access_token` query parameter, not both), and the project has `ai:mcp` enabled. Full details + RBAC and the per-tool input schemas: [references/mcp-and-auth.md](references/mcp-and-auth.md).
+**Troubleshooting:** `curl -s -o /dev/null -w "%{http_code}" -X POST https://<host>/api/<project>/mcp` — a `401` means it's up but unauthenticated (expected without a token); `403` means the credential is valid but forbidden by RBAC or missing entitlement; `404` means the path is wrong; a hang or refusal means it's unreachable. If tools aren't visible: confirm the URL includes the right `<project>`, the credential is present (`Authorization: Bearer` header or `access_token` query parameter, not both), and the project has `ai:mcp` enabled. Full details + RBAC and the per-tool input schemas: [references/mcp-and-auth.md](references/mcp-and-auth.md).
 
 ## Generate a typed SDK client (codegen)
 

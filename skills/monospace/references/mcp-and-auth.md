@@ -49,7 +49,7 @@ Read-first workflow: use `read_schema` (and `list_items`) before `create_items` 
 
 ### Troubleshooting
 
-1. **Reachable?** `curl -s -o /dev/null -w "%{http_code}" -X POST https://<host>/api/<project>/mcp` — `403` = up but unauthenticated (expected with no token); `404` = wrong path; timeout/refused = unreachable or wrong host.
+1. **Reachable?** `curl -s -o /dev/null -w "%{http_code}" -X POST https://<host>/api/<project>/mcp` — `401` = up but unauthenticated (expected with no token); `403` = authenticated but forbidden by RBAC or missing entitlement; `404` = wrong path; timeout/refused = unreachable or wrong host.
 2. **Right URL?** It must be `/api/<project>/mcp` with the correct project slug. There is no `/api/mcp` or `/api/system/mcp`.
 3. **Token valid + entitled?** Confirm either the `Authorization: Bearer` header or the `access_token` query parameter is present, but not both, and that the token is valid and the project has the `ai:mcp` entitlement. Tools missing entirely usually means auth/entitlement, not transport.
 4. **Tool says forbidden?** The token lacks the RBAC for that tool (e.g. `read_schema` needs `dataModel:read`). Mint a key with the needed permissions.
