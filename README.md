@@ -53,8 +53,6 @@ npx skills add directus/monospace-agent-skills
 
 Copy `skills/monospace/` into your agent's skills directory — for Claude Code that's `.claude/skills/` (project) or `~/.claude/skills/` (global). On claude.ai, zip the `skills/monospace/` folder and upload it under **Settings → Skills**.
 
-> While Monospace is in early access this repository may be private; the marketplace and `npx skills add` commands work for users with repository access. The manual copy method always works.
-
 ## Connect the Monospace MCP server
 
 The Monospace MCP server is served **by your own engine, per project**, so the URL is instance-specific. Point your agent at it:
