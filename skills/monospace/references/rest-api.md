@@ -19,14 +19,14 @@ The token may be a user **access token** from login or an **API key** (create on
 
 ## Response envelope
 
-Every response wraps payload in `data`:
+Non-empty JSON responses wrap payload in `data`; delete responses return no content:
 ```jsonc
 // GET /api/<project>/items/articles  ->
 { "data": [ { "id": "…", "title": "…" } ] }
 // GET /api/<project>/items/articles/<id>  ->
 { "data": { "id": "…", "title": "…" } }
 ```
-**Nested to-many relations are themselves enveloped** — e.g. `data.author.data` or `data.comments.data`. List responses can include a top-level `meta.totalCount` when requested with `meta=totalCount`.
+**Nested to-many relations are themselves enveloped** — e.g. `data.comments.data`. List responses can include a top-level `meta.totalCount` when requested with `meta=totalCount`.
 
 ## Query engine
 

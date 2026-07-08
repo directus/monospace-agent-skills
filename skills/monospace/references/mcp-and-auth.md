@@ -8,13 +8,13 @@ Everything authenticates with a token. Two kinds are interchangeable on the wire
 - **API key** — create one in the Studio under **Account → Access → API Keys** (`/account/access#api-keys`); for automation it is also available as `POST /api/system/api-keys`. Best for agents. Carries its own RBAC.
 - **User access token** — obtained by logging in (`POST /api/auth/login`). Carries the user's RBAC.
 
-Authenticated API requests accept exactly one credential source: `Authorization: Bearer <token>`, `access_token=<token>` query parameter, or the session cookie. For MCP, prefer the `Authorization` header; if a client cannot set headers, append `?access_token=<token>` to the MCP URL. Keep tokens out of source; use an env var (`MONOSPACE_API_KEY`) or your agent's secret store. Use cookies for browser sessions, not agent config.
+Authenticated API requests accept exactly one credential source: `Authorization: Bearer <token>`, `access_token=<token>` query parameter, or the session cookie. For MCP, prefer the `Authorization` header; query-string tokens are a fallback only for clients that cannot set headers, because URLs may be stored in config or logs. Keep tokens out of source; use an env var (`MONOSPACE_API_KEY`) or your agent's secret store, including for URL token interpolation. Use cookies for browser sessions, not agent config.
 
 ## MCP server
 
 - **Transport:** streamable-HTTP, stateless. JSON responses. **POST only** (GET/DELETE → 405). MCP protocol version `2025-11-25`; the server identifies as `monospace`.
 - **Endpoint:** `POST https://<host>/api/<project>/mcp` — **per project**. Each project has its own MCP endpoint; there is no single system-wide MCP URL.
-- **Authorization:** `Authorization: Bearer <token>` or `access_token=<token>` query parameter (API key or user access token). The project must have the **`ai:mcp` entitlement** enabled. Beyond that, every tool call is checked against the token's RBAC, so the agent can only do what the key/user is allowed to do.
+- **Authorization:** `Authorization: Bearer <token>` or, only when headers are unavailable, `access_token=<token>` query parameter (API key or user access token). The project must have the **`ai:mcp` entitlement** enabled. Beyond that, every tool call is checked against the token's RBAC, so the agent can only do what the key/user is allowed to do.
 
 > This branch authenticates the MCP server with static tokens — there is no OAuth 2.1 / dynamic-client-registration handshake in the engine here. A hosted/managed Monospace may expose an OAuth flow; for a self-hosted instance, use an API key as shown.
 
@@ -31,7 +31,7 @@ Authenticated API requests accept exactly one credential source: `Authorization:
   }
 }
 ```
-Other agents (Cursor, etc.) use the same three facts — remote/HTTP transport, the per-project URL, and either the `Authorization: Bearer` header or, for URL-only clients, an `access_token` query parameter — in their own MCP config format.
+Other agents (Cursor, etc.) use the same three facts — remote/HTTP transport, the per-project URL, and either the `Authorization: Bearer` header or, for URL-only clients, an `access_token` query parameter populated from a secret store — in their own MCP config format.
 
 ### Tools (7)
 

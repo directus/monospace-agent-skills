@@ -79,7 +79,7 @@ The generated client **infers** result types from your `fields` selection. Never
   // articles: { id: string | null; title: string | null; status: string | null }[]
   ```
   Under the default `strictNull: true` every field is `| null`. Omitting `fields` returns all scalar fields and never relations — select relations explicitly.
-- **Relations follow cardinality** — to-one → `T | null` (access directly); to-many → `{ data: T[] }` (the envelope), e.g. `author.data`.
+- **Relations follow cardinality** — to-one → `T | null` (access directly); to-many → `{ data: T[] }` (the envelope), e.g. `comments.data`.
 - **Name a result type** (component props, return values) → import generated result types instead of writing an interface:
   ```ts
   import type { ArticleReadManyResultItem } from './generated/monospace';
