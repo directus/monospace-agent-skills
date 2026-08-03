@@ -113,6 +113,7 @@ Two type families per operation: `{Collection}{Op}Parameters` (query params only
 - **`createOne` takes a single object under `data`** (`createMany` takes an array under `data`).
 - **Deletes return no content unless `fields` is provided** — call `deleteOne({ key })` or `deleteMany({ filter })` for void deletes; pass `fields` when you need deleted rows back.
 - **`fields` omitted → all scalar fields, never relations** — select nested fields to get relations.
+- **Link relations with `_connect`, not a raw id** — set a to-one relation on write via `data: { author: { _connect: { key: { id } } } }` (create context: singular object; update context: array-wrapped). A bare `author: <id>` is rejected. Full relation ops (`_connect` / `_create` / `_disconnect` / `_update` / `_delete`): [relational data](/developer/api/relational-data).
 
 ## Errors
 

@@ -55,6 +55,13 @@ const created = await client.Articles.createOne({
 
 // createMany — `data` is an array.
 await client.Articles.createMany({ data: [{ title: 'A' }, { title: 'B' }], fields: ['id'] });
+
+// Link an existing related item by primary key with `_connect` — pass a connect
+// operation, not the raw id. A to-one relation in create context is a singular object:
+const withAuthor = await client.Articles.createOne({
+  data: { title: 'Hello', author: { _connect: { key: { id: 7 } } } },
+  fields: ['id', { author: ['name'] }],
+});
 ```
 
 ## Update
@@ -62,8 +69,11 @@ await client.Articles.createMany({ data: [{ title: 'A' }, { title: 'B' }], field
 ```ts
 await client.Articles.updateOne({ key: 1, data: { status: 'published' }, fields: ['id', 'status'] });
 await client.Articles.updateMany({ filter: { status: { _eq: 'draft' } }, data: { status: 'archived' }, fields: ['id'] });
+
+// Relations wrap the operation in an array in update context (create context is a singular object):
+await client.Articles.updateOne({ key: 1, data: { author: [{ _connect: { key: { id: 7 } } }] }, fields: ['id'] });
 ```
-Update inputs make every field optional — include only what you want to change.
+Update inputs make every field optional — include only what you want to change. Beyond `_connect`, update context also supports `_create` / `_disconnect` / `_update` / `_delete` — see [relational data](/developer/api/relational-data).
 
 ## Delete
 
