@@ -113,6 +113,7 @@ Two type families per operation: `{Collection}{Op}Parameters` (query params only
 - **`createOne` takes a single object under `data`** (`createMany` takes an array under `data`).
 - **Deletes return no content unless `fields` is provided** — call `deleteOne({ key })` or `deleteMany({ filter })` for void deletes; pass `fields` when you need deleted rows back.
 - **`fields` omitted → all scalar fields, never relations** — select nested fields to get relations.
+- **Link relations with `_connect`, not a raw id** — a bare `author: <id>` is rejected. The payload shape depends on *both* context and cardinality: on create, to-one is a singular object (`author: { _connect: { key: { id } } }`) and to-many an array (`tags: [{ _connect: { keys: [{ id }] } }]`); on update **every** relation is array-wrapped, to-one included (`author: [{ _connect: { key: { id } } }]`). Array-wrapping a to-one on create is an error. `_connect` takes `key` (object) for to-one, `keys` (array) for to-many. Create allows only `_connect` / `_create`; update adds `_disconnect` / `_update` / `_delete`. Details: [relational data](/developer/api/relational-data).
 
 ## Errors
 
