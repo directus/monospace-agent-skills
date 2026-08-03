@@ -1,14 +1,14 @@
 # Monospace REST API
 
-How to call the Monospace HTTP API directly (raw REST, or from a non-TypeScript language). For TypeScript, prefer the generated SDK — see [sdk.md](sdk.md). Verify anything not here against the live OpenAPI doc (`GET /api/<project>/openapi`).
+How to call the Monospace HTTP API directly (raw REST, or from a non-TypeScript language). For TypeScript, prefer the generated SDK — see [sdk.md](sdk.md). Verify anything not here against the live OpenAPI doc (`GET /api/<workspace>/openapi`).
 
-## Base URL, projects, content type
+## Base URL, workspaces, content type
 
-Monospace is multi-project. Most data and schema routes are project-scoped under `/api/<project>/...`; instance-wide routes are under `/api/system/...`, and authentication routes are under `/api/auth/...`. Requests and responses are JSON (`Content-Type: application/json`).
+Monospace is multi-workspace. Most data and schema routes are workspace-scoped under `/api/<workspace>/...`; instance-wide routes are under `/api/system/...`, and authentication routes are under `/api/auth/...`. Requests and responses are JSON (`Content-Type: application/json`).
 
 ## Auth
 
-Auth endpoints are instance-scoped, not project-scoped:
+Auth endpoints are instance-scoped, not workspace-scoped:
 - `POST /api/auth/providers/<name>/password/login` — authenticate with email/password for the named provider (commonly `local`); supports `session` cookie mode and `json` token-response mode.
 - `POST /api/auth/refresh` — obtain a new access token from a refresh token in a cookie or request body.
 - `POST /api/auth/logout` — invalidate the refresh token and clear session cookies.
@@ -21,9 +21,9 @@ The token may be a user **access token** from login or an **API key** (create on
 
 Non-empty JSON responses wrap payload in `data`; delete responses return no content unless `fields` selects rows to return:
 ```jsonc
-// GET /api/<project>/items/articles  ->
+// GET /api/<workspace>/items/articles  ->
 { "data": [ { "id": "…", "title": "…" } ] }
-// GET /api/<project>/items/articles/<id>  ->
+// GET /api/<workspace>/items/articles/<id>  ->
 { "data": { "id": "…", "title": "…" } }
 ```
 **Nested to-many relations are themselves enveloped** — e.g. `data.comments.data`. List responses can include a top-level `meta.totalCount` when requested with `meta=totalCount`.
@@ -66,16 +66,16 @@ deep[comments][_filter][approved][_eq]=true&deep[comments][_limit]=5
 
 **Not available yet:** `search`, aggregates / `group_by` (params parse but are ignored).
 
-## Endpoints (project-scoped unless noted)
+## Endpoints (workspace-scoped unless noted)
 
 | Purpose | Method + path |
 | --- | --- |
-| List items | `GET /api/<project>/items/<collection>` |
-| Read item | `GET /api/<project>/items/<collection>/<id>` |
-| Create items | `POST /api/<project>/items/<collection>` (accepts one or many) |
-| Update item | `PATCH /api/<project>/items/<collection>/<id>` |
-| Delete item | `DELETE /api/<project>/items/<collection>/<id>` |
-| OpenAPI (project) | `GET /api/<project>/openapi` |
+| List items | `GET /api/<workspace>/items/<collection>` |
+| Read item | `GET /api/<workspace>/items/<collection>/<id>` |
+| Create items | `POST /api/<workspace>/items/<collection>` (accepts one or many) |
+| Update item | `PATCH /api/<workspace>/items/<collection>/<id>` |
+| Delete item | `DELETE /api/<workspace>/items/<collection>/<id>` |
+| OpenAPI (workspace) | `GET /api/<workspace>/openapi` |
 | OpenAPI (system) | `GET /api/system/openapi` |
 | Create API key (or use Studio → Account → Access) | `POST /api/system/api-keys` |
 | Password login | `POST /api/auth/providers/<name>/password/login` |

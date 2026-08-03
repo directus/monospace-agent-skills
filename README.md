@@ -55,7 +55,7 @@ Copy `skills/monospace/` into your agent's skills directory — for Claude Code 
 
 ## Connect the Monospace MCP server
 
-The Monospace MCP server is served **by your own engine, per project**, so the URL is instance-specific. Point your agent at it:
+The Monospace MCP server is served **by your own engine, per workspace**, so the URL is instance-specific. Point your agent at it:
 
 ```jsonc
 // .mcp.json (project root)
@@ -63,7 +63,7 @@ The Monospace MCP server is served **by your own engine, per project**, so the U
   "mcpServers": {
     "monospace": {
       "type": "http",
-      "url": "https://YOUR_HOST/api/YOUR_PROJECT/mcp",
+      "url": "https://YOUR_HOST/api/YOUR_WORKSPACE/mcp",
       "headers": { "Authorization": "Bearer ${MONOSPACE_API_KEY}" }
     }
   }
@@ -72,7 +72,7 @@ The Monospace MCP server is served **by your own engine, per project**, so the U
 
 1. Create an API key in the Monospace Studio under **Account → Access → API Keys** (`/account/access#api-keys`) — or use a user access token. Both are JWTs.
 2. Put it in `MONOSPACE_API_KEY` so it isn't committed.
-3. Ensure the project has the `ai:mcp` entitlement; tools then run under the key's permissions.
+3. Ensure the workspace has the `ai:mcp` entitlement; tools then run under the key's permissions.
 
 The skill includes the full tool list and a troubleshooting guide — see [`skills/monospace/references/mcp-and-auth.md`](skills/monospace/references/mcp-and-auth.md).
 

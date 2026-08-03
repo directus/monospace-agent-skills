@@ -17,7 +17,7 @@ Mirrors the official quickstart (docs: `/developer/sdk`, `/developer/sdk/client-
 
    export default defineConfig({
      url: 'https://example.monospace.io',
-     project: 'blog',
+     workspace: 'blog',
      output: './src/generated/monospace', // default — set to your project's layout
    });
    ```
@@ -29,7 +29,7 @@ Mirrors the official quickstart (docs: `/developer/sdk`, `/developer/sdk/client-
 
    const client = createClient({
      url: 'https://example.monospace.io',
-     project: 'blog',
+     workspace: 'blog',
      apiKey: process.env.MONOSPACE_API_KEY,
    });
    ```
@@ -41,7 +41,7 @@ Haven't generated yet? `@monospace/sdk` exports a generic `createClient` with th
 
 ## Construct the client
 
-`createClient({ url, project, apiKey })` — base URL becomes `${url}/api/${project}`. Auth modes:
+`createClient({ url, workspace, apiKey })` — base URL becomes `${url}/api/${workspace}`. Auth modes:
 - **Static bearer** — pass `apiKey`; sent as `Authorization: Bearer <apiKey>`.
 - **Cookie / session** — browser apps; the client sends credentials instead of a bearer.
 - **Custom headers** — supply your own header map.
@@ -122,7 +122,7 @@ The SDK maps engine errors to typed exceptions: `MonospaceError` (base, carries 
 
 - **CLI** (bin is `monospace`; `npx @monospace/sdk <cmd>` runs it without a global install): `init`, `generate`, `login`, `logout`, `validate`.
 - **Config** (`monospace.config.ts` / `.js`, discovered via jiti):
-  - **Remote mode** — `generate` fetches `GET /api/<project>/openapi` (auth required) via your keyring token or `MONOSPACE_API_KEY`.
+  - **Remote mode** — `generate` fetches `GET /api/<workspace>/openapi` (auth required) via your keyring token or `MONOSPACE_API_KEY`.
   - **Local mode** — set `input` to a saved OpenAPI JSON file; no network. (Hand-authored; `init` scaffolds remote only.)
   - `output` — where `index.ts` is written (default `./src/generated/monospace`).
 - The generator consumes the `x-monospace-mappings` OpenAPI extension to map operations to typed collection delegates; the emitted `index.ts` exports a `createClient` already bound to your `Schema`, plus the per-collection type aliases above.
