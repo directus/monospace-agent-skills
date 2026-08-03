@@ -13,13 +13,13 @@ Drive a Monospace instance from an agent: query and mutate data via the REST API
 ## Core principles
 
 **1. You almost certainly don't know this API. Don't guess — use the ground truth.**
-Monospace is not in most training data, so do not invent endpoints, SDK methods, or types from memory. The SDK is `@monospace/sdk` (`createClient` + per-collection delegates). Get the real shape from generated types (`npx @monospace/sdk generate`) or the live OpenAPI doc (`GET /api/<project>/openapi`), plus the references below. (If you happen to know Directus: it is a different product — don't assume its APIs carry over.)
+Monospace is not in most training data, so do not invent endpoints, SDK methods, or types from memory. The SDK is `@monospace/sdk` (`createClient` + per-collection delegates). Get the real shape from generated types (`npx @monospace/sdk generate`) or the live OpenAPI doc (`GET /api/<workspace>/openapi`), plus the references below. (If you happen to know Directus: it is a different product — don't assume its APIs carry over.)
 
 **2. Generate types, then write against them.**
 The most reliable way to get the data shape right is to generate a typed client from the running instance: `npx @monospace/sdk generate` reads the live OpenAPI document and emits a typed client matching *that instance's* schema. Prefer generated types over hand-written shapes. See [references/sdk.md](references/sdk.md).
 
 **3. Verify against current docs / OpenAPI before implementing.**
-For anything not covered here, fetch the canonical OpenAPI doc (`GET /api/<project>/openapi`, or `/api/system/openapi`) or the Monospace docs. The OpenAPI doc is generated from the live schema, so it is always correct for the instance.
+For anything not covered here, fetch the canonical OpenAPI doc (`GET /api/<workspace>/openapi`, or `/api/system/openapi`) or the Monospace docs. The OpenAPI doc is generated from the live schema, so it is always correct for the instance.
 
 **4. Inspect before you mutate, then verify.**
 Read the schema / list items (read-only) before writing. After a write, read it back to confirm. A change without verification is incomplete.
@@ -41,7 +41,7 @@ These are verified, easy-to-miss behaviors. Getting them wrong fails silently.
 
 ## Connect to a Monospace instance
 
-You need three things: the **host** (engine base URL), the **project** slug (Monospace is multi-project; most data routes are `/api/<project>/...`), and a **token**. Create an API key in the Studio under **Account → Access → API Keys** (`/account/access#api-keys`; API endpoint `POST /api/system/api-keys`), or log in with `POST /api/auth/providers/<name>/password/login` for a user access token. Prefer `Authorization: Bearer <token>` for agents/scripts; the API also accepts an `access_token` query parameter or session cookie, but send only one credential source per request.
+You need three things: the **host** (engine base URL), the **workspace** slug (Monospace is multi-workspace; most data routes are `/api/<workspace>/...`), and a **token**. Create an API key in the Studio under **Account → Access → API Keys** (`/account/access#api-keys`; API endpoint `POST /api/system/api-keys`), or log in with `POST /api/auth/providers/<name>/password/login` for a user access token. Prefer `Authorization: Bearer <token>` for agents/scripts; the API also accepts an `access_token` query parameter or session cookie, but send only one credential source per request.
 
 Two ways an agent works with the data:
 - **MCP server** — best for agentic CRUD + schema work inside a chat/coding agent. Set it up below.
@@ -49,10 +49,10 @@ Two ways an agent works with the data:
 
 ## MCP server setup (recommended for agentic work)
 
-The Monospace MCP server is served by the engine, **per project**, over streamable-HTTP.
+The Monospace MCP server is served by the engine, **per workspace**, over streamable-HTTP.
 
-- **Endpoint:** `POST https://<host>/api/<project>/mcp` (per-project; POST only; protocol `2025-11-25`).
-- **Auth:** `Authorization: Bearer <token>` or, only when headers are unavailable, `access_token=<token>` query parameter populated from a secret store (API key or user access token). Do not send both. Use session cookies for browser flows, not agent config. The project needs the `ai:mcp` entitlement, and each tool runs under the token's RBAC.
+- **Endpoint:** `POST https://<host>/api/<workspace>/mcp` (per-workspace; POST only; protocol `2025-11-25`).
+- **Auth:** `Authorization: Bearer <token>` or, only when headers are unavailable, `access_token=<token>` query parameter populated from a secret store (API key or user access token). Do not send both. Use session cookies for browser flows, not agent config. The workspace needs the `ai:mcp` entitlement, and each tool runs under the token's RBAC.
 
 Config (`.mcp.json` at the project root):
 ```jsonc
@@ -60,7 +60,7 @@ Config (`.mcp.json` at the project root):
   "mcpServers": {
     "monospace": {
       "type": "http",
-      "url": "https://YOUR_HOST/api/YOUR_PROJECT/mcp",
+      "url": "https://YOUR_HOST/api/YOUR_WORKSPACE/mcp",
       "headers": { "Authorization": "Bearer ${MONOSPACE_API_KEY}" }
     }
   }
@@ -69,7 +69,7 @@ Config (`.mcp.json` at the project root):
 
 **Tools exposed (7):** `list_items`, `create_items`, `update_item`, `delete_item` (CRUD under the caller's permissions), `read_schema` (needs `dataModel:read`), `read_data_sources` (`dataModel:read` + `dataSource:read`), and `mutate_schema` (`dataModel:edit` — can be destructive).
 
-**Troubleshooting:** `curl -s -o /dev/null -w "%{http_code}" -X POST https://<host>/api/<project>/mcp` — a `401` means it's up but unauthenticated (expected without a token); `403` means the credential is valid but forbidden by RBAC or missing entitlement; `404` means the path is wrong; a hang or refusal means it's unreachable. If tools aren't visible: confirm the URL includes the right `<project>`, the credential is present (`Authorization: Bearer` header or `access_token` query parameter, not both), and the project has `ai:mcp` enabled. Full details + RBAC and the per-tool input schemas: [references/mcp-and-auth.md](references/mcp-and-auth.md).
+**Troubleshooting:** `curl -s -o /dev/null -w "%{http_code}" -X POST https://<host>/api/<workspace>/mcp` — a `401` means it's up but unauthenticated (expected without a token); `403` means the credential is valid but forbidden by RBAC or missing entitlement; `404` means the path is wrong; a hang or refusal means it's unreachable. If tools aren't visible: confirm the URL includes the right `<workspace>`, the credential is present (`Authorization: Bearer` header or `access_token` query parameter, not both), and the workspace has `ai:mcp` enabled. Full details + RBAC and the per-tool input schemas: [references/mcp-and-auth.md](references/mcp-and-auth.md).
 
 ## Generate a typed SDK client (codegen)
 
@@ -78,7 +78,7 @@ npx @monospace/sdk init       # scaffold monospace.config.ts (output defaults to
 npx @monospace/sdk login      # store credentials in the OS keyring (or set MONOSPACE_API_KEY)
 npx @monospace/sdk generate   # fetch the live OpenAPI and emit <output>/index.ts
 ```
-The generated `index.ts` exports a `createClient` bound to your instance's schema — import it from your generated output (default `./src/generated/monospace`; match your project's path/alias), not from `@monospace/sdk`, for fully-typed queries. Remote mode fetches `GET /api/<project>/openapi` (auth required); local mode reads a saved OpenAPI JSON via `input`. Details, flags, and a zero-to-typed-client sequence: [references/sdk.md](references/sdk.md).
+The generated `index.ts` exports a `createClient` bound to your instance's schema — import it from your generated output (default `./src/generated/monospace`; match your project's path/alias), not from `@monospace/sdk`, for fully-typed queries. Remote mode fetches `GET /api/<workspace>/openapi` (auth required); local mode reads a saved OpenAPI JSON via `input`. Details, flags, and a zero-to-typed-client sequence: [references/sdk.md](references/sdk.md).
 
 ## Reference guides
 
