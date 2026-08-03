@@ -56,13 +56,18 @@ const created = await client.Articles.createOne({
 // createMany — `data` is an array.
 await client.Articles.createMany({ data: [{ title: 'A' }, { title: 'B' }], fields: ['id'] });
 
-// Link an existing related item by primary key with `_connect` — pass a connect
-// operation, not the raw id. A to-one relation in create context is a singular object:
+// Link existing related items with `_connect` — pass an operation, never a raw id.
+// In create context a to-one relation is a singular object, a to-many is an array of operations.
 const withAuthor = await client.Articles.createOne({
-  data: { title: 'Hello', author: { _connect: { key: { id: 7 } } } },
+  data: {
+    title: 'Hello',
+    author: { _connect: { key: { id: 7 } } },                // to-one  → object, singular `key`
+    tags: [{ _connect: { keys: [{ id: 1 }, { id: 3 }] } }],  // to-many → array, plural `keys`
+  },
   fields: ['id', { author: ['name'] }],
 });
 ```
+Array-wrapping a to-one on create is rejected. Create context offers only `_connect` and `_create` — there is nothing yet to disconnect, update, or delete.
 
 ## Update
 
@@ -70,10 +75,18 @@ const withAuthor = await client.Articles.createOne({
 await client.Articles.updateOne({ key: 1, data: { status: 'published' }, fields: ['id', 'status'] });
 await client.Articles.updateMany({ filter: { status: { _eq: 'draft' } }, data: { status: 'archived' }, fields: ['id'] });
 
-// Relations wrap the operation in an array in update context (create context is a singular object):
-await client.Articles.updateOne({ key: 1, data: { author: [{ _connect: { key: { id: 7 } } }] }, fields: ['id'] });
+// Update context wraps *every* relation in an array — to-one included, unlike create.
+// That is what lets you sequence operations on one field; they run in array order.
+await client.Articles.updateOne({
+  key: 1,
+  data: {
+    author: [{ _disconnect: {} }, { _connect: { key: { id: 7 } } }],  // to-one  → still an array
+    tags: [{ _connect: { keys: [{ id: 5 }] } }],                      // to-many → array
+  },
+  fields: ['id'],
+});
 ```
-Update inputs make every field optional — include only what you want to change. Beyond `_connect`, update context also supports `_create` / `_disconnect` / `_update` / `_delete` — see [relational data](/developer/api/relational-data).
+Update inputs make every field optional — include only what you want to change. Beyond `_connect` / `_create`, update context adds `_disconnect` / `_update` / `_delete`; on a to-one, `_disconnect` and `_delete` exist only if the relation is nullable. `_connect` always takes `key` (object) for to-one and `keys` (array) for to-many, in both contexts — see [relational data](/developer/api/relational-data).
 
 ## Delete
 
