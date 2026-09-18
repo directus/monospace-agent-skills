@@ -32,7 +32,10 @@ Non-empty JSON responses wrap payload in `data`; delete responses return no cont
 
 Pass these as query params (or in the request for the SDK). Examples use bracketed query-string form.
 
-**fields** — selection. Defaults to top-level primitives only; request relations explicitly. `fields=*` selects top-level fields; nested selection pulls relations.
+**fields** — selection. Required on every request; there is no default, and omitting it
+fails. This applies to creates and updates as well, where `fields` sets what the response
+returns. `fields=*` selects all top-level primitives; name fields individually to fetch
+less. Relations are never included in `*` — request them explicitly.
 
 **filter** — underscore-prefixed operators:
 
