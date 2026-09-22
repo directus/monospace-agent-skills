@@ -27,9 +27,12 @@ Agents don't have Monospace in their training data, so left alone they guess. Th
 > [!NOTE]
 > Monospace is currently in **_early access_**. APIs and developer workflows may change between releases, and this bundle tracks them. Pin a version if you need stability.
 
+Relation queries use recursive `include` objects, while `fields` selects scalars.
+See the [query guide](skills/monospace/references/rest-api.md#query-engine) for selection, filtering, and pagination.
+
 ## What it covers
 
-- **REST API** — the query engine (fields, filters, sort, pagination, deep relations), the response envelope, auth, and error shapes.
+- **REST API** — the query engine (scalar fields, recursive includes, filters, sort, pagination, aliases), the response envelope, auth, and error shapes.
 - **SDK** — `createClient`, the typed per-collection delegate API, and **codegen**: generate types from your instance's live OpenAPI so every query is type-checked against your real schema.
 - **Data workflows** — copy-pasteable read / create / update / delete recipes, with the easy-to-miss traps called out.
 - **MCP** — how to connect an agent to your instance's MCP server, the tools it exposes, and how to authenticate.

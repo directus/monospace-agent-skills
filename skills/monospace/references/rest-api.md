@@ -19,7 +19,7 @@ The token may be a user **access token** from login or an **API key** (create on
 
 ## Response envelope
 
-Non-empty JSON responses wrap payload in `data`; delete responses return no content unless `fields` selects rows to return:
+Non-empty JSON responses wrap payload in `data`; delete responses return no content unless `fields` or `include` selects rows to return:
 ```jsonc
 // GET /api/<workspace>/items/articles  ->
 { "data": [ { "id": "…", "title": "…" } ] }
@@ -32,10 +32,36 @@ Non-empty JSON responses wrap payload in `data`; delete responses return no cont
 
 Pass these as query params (or in the request for the SDK). Examples use bracketed query-string form.
 
-**fields** — selection. Required on every request; there is no default, and omitting it
-fails. This applies to creates and updates as well, where `fields` sets what the response
-returns. `fields=*` selects all top-level primitives; name fields individually to fetch
-less. Relations are never included in `*` — request them explicitly.
+**fields** — scalar selection at the current level. Send `fields=id,title` (or
+`fields[0]=id&fields[1]=title`) for explicit selection, or `fields=*` for all scalars.
+For creates and updates this selects the response, not the input payload. Relations
+are never included in `*`; select them with `include`. The SDK supplies `['*']` when
+`fields` is omitted; use explicit selections in raw REST requests.
+
+Dots in `fields` are literal characters, not relation paths. Use `include` for
+relations; nested objects in `fields` and the `deep` parameter are unsupported.
+
+**include** — recursive relation queries. Each relation has its own `fields`, nested
+`include`, and supported `filter`/`sort`/`limit`/`offset` arguments, without underscore
+prefixes on argument names:
+```
+fields=id,title&include[author][fields]=name
+include[comments][fields]=id,body&include[comments][filter][approved][_eq]=true&include[comments][limit]=5
+include[comments][include][author][fields]=name
+```
+Combine these parameters on one request as needed. An included relation is selected
+without also naming it in `fields`. To-many relations support filtering, sorting,
+and pagination; nullable to-one relations support filtering; required to-one relations
+do not support filtering. Nested limits apply per parent. A nested filter narrows
+the returned relation; a top-level relation filter narrows the parent results.
+
+**Aliases** — `responseName:sourceField` in scalar selections and include keys:
+```
+fields=id,headline:title&include[writer:author][fields]=name
+```
+This returns `headline` and `writer`. Alias the same relation twice to request two
+different filtered or paginated views. With `*`, an explicit scalar alias replaces
+the source name unless you also select that source name explicitly.
 
 **filter** — underscore-prefixed operators:
 
@@ -53,21 +79,16 @@ filter[status][_eq]=published
 filter[_and][0][views][_gte]=100&filter[_and][1][title][_icontains]=monospace
 filter[comments][_some][approved][_eq]=true
 ```
-Operators are type-gated by the engine — e.g. `_null` only applies to nullable fields, string operators only to text. Filtering a to-one relation is only allowed on nullable relations; to-many defaults to `_some` if no quantifier is given.
+Operators depend on both type and field capabilities — e.g. `_null` only applies to nullable fields, string operators only to text, and a connector may restrict filtering or particular operators. Sorting and write operations are also capability-gated. Inspect the live OpenAPI/generated types instead of assuming every field supports the full table. Filtering a to-one relation is only allowed on nullable relations; to-many defaults to `_some` if no quantifier is given.
 
-**sort** — object form only; `-field` shorthand is rejected:
+**sort** — use the explicit object form; `-field` shorthand is rejected:
 ```
 sort[0][created_at][direction]=desc&sort[1][title][direction]=asc
 ```
 
 **limit / offset** — `limit` default 100, `offset` default 0. `limit=0` or `limit=-1` requests unlimited (subject to the configured max). Defaults/max are configurable via `MONOSPACE_QUERY_LIMIT_DEFAULT` / `MONOSPACE_QUERY_LIMIT_MAX`. There is no `page` param and no cursor pagination — page manually with `offset = (page - 1) * limit`. Request `meta=totalCount` on list queries when you need the total matching row count.
 
-**deep** — filter/sort/paginate a nested relation, with underscore-prefixed keys:
-```
-deep[comments][_filter][approved][_eq]=true&deep[comments][_limit]=5
-```
-
-**Not available yet:** `search`, aggregates / `group_by` (params parse but are ignored).
+**Not available:** `search`, aggregates / `group_by`, and the GraphQL router. Use REST or the SDK.
 
 ## Endpoints (workspace-scoped unless noted)
 

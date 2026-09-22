@@ -3,7 +3,6 @@ name: monospace
 description: "Use when doing ANY task against a Monospace instance. Triggers: reading, creating, updating, deleting, querying, filtering, sorting, or paginating data via the Monospace REST API or the @monospace/sdk (createClient, readMany, createOne, updateOne); generating a typed SDK client (`npx @monospace/sdk generate`, monospace.config.ts); connecting to or using the Monospace MCP server; minting API keys or authenticating; inspecting collections, fields, relations, or schema. Do NOT use for legacy Directus v9 / @directus/sdk — Monospace is a different product with a different API and SDK."
 metadata:
   author: monospace
-  version: "0.1.0"
 ---
 
 # Monospace
@@ -33,11 +32,12 @@ These are verified, easy-to-miss behaviors. Getting them wrong fails silently.
 
 - **Responses are enveloped as `{ "data": ... }`.** A list returns `{ data: [...] }`, a single item `{ data: {...} }`. The SDK strips the *top-level* envelope for you, but **nested to-many relations stay enveloped** — relation data sits under `relation.data`, and the SDK does NOT unwrap it. Reach into `item.<relation>.data` (to-one relations are accessed directly).
 - **Methods take a single options object, not positional args.** `readOne`/`updateOne`/`deleteOne` take `{ key, ... }`; `createOne({ data: <object>, fields })` (single object under `data`); `createMany` takes `{ data, fields }`; `updateMany` takes `{ filter, data, fields }`; `deleteMany` takes `{ filter, fields? }`. There is no `readOne(id)` form. Collections are cased as named (`client.Articles`, not `client.articles`).
-- **Deletes return no content unless `fields` is provided.** `deleteOne({ key })` / `deleteMany({ filter })` return void; pass `fields` only when you need deleted rows back.
-- **`fields` defaults to top-level primitives only.** Relations are not returned unless you select them. The SDK sends `fields: ['*']` by default (top-level), so request nested fields explicitly to get relations.
+- **Deletes return no content unless `fields` or `include` is provided.** `deleteOne({ key })` / `deleteMany({ filter })` return void; provide a selection only when you need deleted rows back.
+- **`fields` selects scalars; `include` selects relations.** Use `fields: ['id'], include: { author: { fields: ['name'] } }`. The SDK defaults to all scalars at each level; relations require `include`. Do not use nested objects in `fields`, dotted relation paths, or `deep`. Inside `include`, use plain `filter`/`sort`/`limit`/`offset`; filter operators still have underscores (`_eq`, etc.).
+- **Query support is field- and operation-specific.** A field's type alone does not guarantee it is filterable, sortable, or writable. Use current generated types/OpenAPI to check capabilities.
 - **Filter operators are underscore-prefixed.** `_eq _neq _lt _lte _gt _gte _in _nin _between _nbetween _contains _icontains _ncontains _nicontains _starts_with _nstarts_with _ends_with _nends_with _null`; combine with `_and _or _not`; for to-many relations use quantifiers `_some _every _none`. `_null` is only valid on nullable fields. Full table in [references/rest-api.md](references/rest-api.md).
 - **Sort uses the object form, not `-field`.** Use `sort: [{ <field>: { direction: 'asc' | 'desc' } }]`. The `-created_at` shorthand is rejected by the engine.
-- **No `search` param, no `page`/cursor pagination, no aggregates yet.** Paginate with `limit` (default 100) + `offset`; request `meta=totalCount` when you need the total matching row count. Aggregate/group params parse but are silently ignored today.
+- **No `search` param, no `page`/cursor pagination, no aggregates yet.** Paginate with `limit` (default 100) + `offset`; request `meta=totalCount` when you need the total matching row count. Do not send aggregate/group params expecting computed results.
 
 ## Connect to a Monospace instance
 
@@ -68,6 +68,8 @@ Config (`.mcp.json` at the project root):
 ```
 
 **Tools exposed (7):** `list_items`, `create_items`, `update_item`, `delete_item` (CRUD under the caller's permissions), `read_schema` (needs `dataModel:read`), `read_data_sources` (`dataModel:read` + `dataSource:read`), and `mutate_schema` (`dataModel:edit` — can be destructive).
+
+**MCP limits:** `list_items` requires a scalar `fields` array and does not expose `include`; use SDK/REST for relational selections. Roles do not inherit from other roles; check directly assigned roles and their policies when diagnosing access failures. See [MCP and auth](references/mcp-and-auth.md).
 
 **Troubleshooting:** `curl -s -o /dev/null -w "%{http_code}" -X POST https://<host>/api/<workspace>/mcp` — a `401` means it's up but unauthenticated (expected without a token); `403` means the credential is valid but forbidden by RBAC or missing entitlement; `404` means the path is wrong; a hang or refusal means it's unreachable. If tools aren't visible: confirm the URL includes the right `<workspace>`, the credential is present (`Authorization: Bearer` header or `access_token` query parameter, not both), and the workspace has `ai:mcp` enabled. Full details + RBAC and the per-tool input schemas: [references/mcp-and-auth.md](references/mcp-and-auth.md).
 

@@ -5,11 +5,11 @@ Known-good recipes for reading and writing data, with the traps annotated inline
 ## Read: filter, select, sort, paginate
 
 ```ts
-// Filter + nested selection. Select relations explicitly — with `fields` omitted you
-// get scalar fields only, so `author` would be missing without selecting it.
+// `fields` selects scalars; `include` selects relations.
 const articles = await client.Articles.readMany({
   filter: { status: { _eq: 'published' }, views: { _gte: 100 } },
-  fields: ['id', 'title', { author: ['id', 'name'] }],
+  fields: ['id', 'title'],
+  include: { author: { fields: ['id', 'name'] } },
   sort: [{ created_at: { direction: 'desc' } }],
   limit: 20,
   offset: 0,
@@ -17,13 +17,30 @@ const articles = await client.Articles.readMany({
 // `articles` is fully typed and narrowed to the selected fields — no interface needed.
 
 // Read a single item by key. To-one relations are accessed directly...
-const article = await client.Articles.readOne({ key: 1, fields: ['id', { author: ['name'] }] });
+const article = await client.Articles.readOne({ key: 1, fields: ['id'], include: { author: { fields: ['name'] } } });
 const authorName = article.author?.name; // to-one → T | null, direct access
 
 // ...to-many relations stay enveloped under `.data`:
-const withComments = await client.Articles.readOne({ key: 1, fields: ['id', { comments: ['id', 'body'] }] });
+const withComments = await client.Articles.readOne({
+  key: 1,
+  fields: ['id'],
+  include: {
+    comments: {
+      fields: ['id', 'body'],
+      filter: { approved: { _eq: true } },
+      sort: [{ created_at: { direction: 'desc' } }],
+      limit: 5,
+      include: { author: { fields: ['name'] } },
+    },
+  },
+});
 const comments = withComments.comments?.data; // NOT withComments.comments
 ```
+
+The comment filter only narrows the included comments. To return only articles with
+an approved comment, add `filter: { comments: { _some: { approved: { _eq: true } } } }`
+at the top level. Nested arguments use `filter`/`limit`, not `_filter`/`_limit`;
+operators such as `_eq` keep their underscores. Use another `include` at each depth.
 
 Pagination is manual — there is no `page` param:
 ```ts
@@ -64,7 +81,8 @@ const withAuthor = await client.Articles.createOne({
     author: { _connect: { key: { id: 7 } } },                // to-one  → object, singular `key`
     tags: [{ _connect: { keys: [{ id: 1 }, { id: 3 }] } }],  // to-many → array, plural `keys`
   },
-  fields: ['id', { author: ['name'] }],
+  fields: ['id'],
+  include: { author: { fields: ['name'] } },
 });
 ```
 Array-wrapping a to-one on create is rejected. Create context offers only `_connect` and `_create` — there is nothing yet to disconnect, update, or delete.
@@ -91,7 +109,7 @@ Update inputs make every field optional — include only what you want to change
 ## Delete
 
 ```ts
-// Deletes return no content unless you pass `fields` to return deleted rows.
+// Deletes return no content unless you pass `fields` or `include` to return deleted rows.
 await client.Articles.deleteOne({ key: 1 });
 await client.Articles.deleteMany({ filter: { status: { _eq: 'archived' } } });
 ```
