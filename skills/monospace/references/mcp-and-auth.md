@@ -10,13 +10,19 @@ Everything authenticates with a token. Two kinds are interchangeable on the wire
 
 Authenticated API requests accept exactly one credential source: `Authorization: Bearer <token>`, `access_token=<token>` query parameter, or the session cookie. For MCP, prefer the `Authorization` header; query-string tokens are a fallback only for clients that cannot set headers, because URLs may be stored in config or logs. Keep tokens out of source; use an env var (`MONOSPACE_API_KEY`) or your agent's secret store, including for URL token interpolation. Use cookies for browser sessions, not agent config.
 
+### Roles and access control
+
+- **Roles are flat.** Assign roles explicitly; inspect the user's directly assigned roles and their policies when diagnosing access failures.
+- **Public and administrator roles are provisioned automatically per workspace.** These built-in roles cannot be updated or deleted, and the public role cannot be attached to a user. Do not try to recreate or modify them as ordinary custom roles.
+- **Suspended users cannot authenticate.** Check user status as well as token validity and permissions when diagnosing access failures.
+
 ## MCP server
 
 - **Transport:** streamable-HTTP, stateless. JSON responses. **POST only** (GET/DELETE → 405). MCP protocol version `2025-11-25`; the server identifies as `monospace`.
 - **Endpoint:** `POST https://<host>/api/<workspace>/mcp` — **per workspace**. Each workspace has its own MCP endpoint; there is no single system-wide MCP URL.
 - **Authorization:** `Authorization: Bearer <token>` or, only when headers are unavailable, `access_token=<token>` query parameter (API key or user access token). The workspace must have the **`ai:mcp` entitlement** enabled. Beyond that, every tool call is checked against the token's RBAC, so the agent can only do what the key/user is allowed to do.
 
-> This branch authenticates the MCP server with static tokens — there is no OAuth 2.1 / dynamic-client-registration handshake in the engine here. A hosted/managed Monospace may expose an OAuth flow; for a self-hosted instance, use an API key as shown.
+> The engine authenticates the MCP server with static tokens — there is no OAuth 2.1 / dynamic-client-registration handshake here. Use an API key as shown.
 
 ### `.mcp.json` (Claude Code, project root)
 
@@ -46,6 +52,27 @@ Other agents (Cursor, etc.) use the same three facts — remote/HTTP transport, 
 | `mutate_schema` | Create/alter schema (can be **destructive**) | `dataModel:edit` |
 
 Read-first workflow: use `read_schema` (and `list_items`) before `create_items` / `update_item` / `mutate_schema`, then verify with a follow-up read. Treat `mutate_schema` as destructive — confirm intent before altering or dropping schema.
+
+### `list_items` query limits
+
+The tool takes `collection`, a required scalar `fields` array, and optional `filter`,
+`sort`, `limit`, and `offset`. It does **not** expose REST/SDK `include` or `meta`.
+Use SDK/REST when you need related rows or total-count metadata; do not pass nested
+objects or relation dot-paths in the MCP `fields` array.
+
+```json
+{
+  "collection": "Articles",
+  "fields": ["id", "title"],
+  "filter": { "status": { "_eq": "published" } },
+  "sort": [{ "created_at": { "direction": "desc" } }],
+  "limit": 20
+}
+```
+
+Use the object sort form even if the tool's description suggests `-created_at`:
+the REST query adapter rejects that shorthand. Check the live tool schema for the
+available arguments.
 
 ### Troubleshooting
 
