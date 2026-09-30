@@ -1,92 +1,72 @@
 ---
 name: monospace
-description: "Use when doing ANY task against a Monospace instance. Triggers: reading, creating, updating, deleting, querying, filtering, sorting, or paginating data via the Monospace REST API or the @monospace/sdk (createClient, readMany, createOne, updateOne); generating a typed SDK client (`npx @monospace/sdk generate`, monospace.config.ts); connecting to or using the Monospace MCP server; minting API keys or authenticating; inspecting collections, fields, relations, or schema. Do NOT use for legacy Directus v9 / @directus/sdk — Monospace is a different product with a different API and SDK."
+description: "Use for Monospace REST or @monospace/sdk data access, @monospace/cli codegen, workspace and schema setup, authentication and permissions, or MCP configuration and troubleshooting. Not for legacy Directus or @directus/sdk."
 metadata:
   author: monospace
 ---
 
 # Monospace
 
-Drive a Monospace instance from an agent: query and mutate data via the REST API or the typed SDK, generate instance-correct types, and use the MCP server. This page is a router — read the principles and the inline traps, then load the reference for the task.
+Work with a Monospace instance: query and mutate data through the REST API or the typed SDK, generate instance-specific types, bootstrap workspaces and discover schema, and use the per-workspace MCP server. Read the traps below, then load the reference that matches the task.
 
-## Core principles
+*Verified against engine source `4f6f48c` (reports `0.7.0`) with `@monospace/sdk` `0.8.0` and `@monospace/cli` `0.1.0` from continuous build `31d52d0`. Monospace is in early access. If an instance behaves differently, trust the instance and its error messages.*
 
-**1. You almost certainly don't know this API. Don't guess — use the ground truth.**
-Monospace is not in most training data, so do not invent endpoints, SDK methods, or types from memory. The SDK is `@monospace/sdk` (`createClient` + per-collection delegates). Get the real shape from generated types (`npx @monospace/sdk generate`) or the live OpenAPI doc (`GET /api/<workspace>/openapi`), plus the references below. (If you happen to know Directus: it is a different product — don't assume its APIs carry over.)
+## Principles
 
-**2. Generate types, then write against them.**
-The most reliable way to get the data shape right is to generate a typed client from the running instance: `npx @monospace/sdk generate` reads the live OpenAPI document and emits a typed client matching *that instance's* schema. Prefer generated types over hand-written shapes. See [references/sdk.md](references/sdk.md).
+1. **Don't guess the API.** Monospace has a different API and SDK from Directus. The sources of truth are the types generated from the instance (`monospace sdk generate`), the instance's own responses and error messages, and these references. The workspace **OpenAPI document describes item routes** (use it for payload shapes and codegen). It is **not a complete or fully correct catalog** of management and schema routes, so use [bootstrap-and-schema.md](references/bootstrap-and-schema.md) for those.
+2. **Generate types, then write against them.** Examples here use illustrative collection and field names, so adapt names and types to the generated schema.
+3. **Inspect, write, verify.** Read the schema and existing rows before writing. Send an explicit `fields` selection on item reads and writes. Afterwards, read back using the same key or the user's exact filter.
+4. **Recover, don't loop.** Read the error body, including its nested `source` chain. After 2–3 failed attempts, re-check the schema, permissions, and license instead of retrying.
 
-**3. Verify against current docs / OpenAPI before implementing.**
-For anything not covered here, fetch the canonical OpenAPI doc (`GET /api/<workspace>/openapi`, or `/api/system/openapi`) or the Monospace docs. The OpenAPI doc is generated from the live schema, so it is always correct for the instance.
+## Critical traps
 
-**4. Inspect before you mutate, then verify.**
-Read the schema / list items (read-only) before writing. After a write, read it back to confirm. A change without verification is incomplete.
+- **Envelopes depend on the endpoint.** Item and most management responses are `{ data }` (plus `meta` when requested). JSON login, `/api/system/info`, the `/schema` manifest, and OpenAPI are **bare**. A raw item `POST` returns a `data` **array** even for one object. The SDK unwraps only the top level. **Nested to-many relations stay `relation.data`**, and to-one relations are direct.
+- **Deletes need a selection.** Use `deleteOne({ key, fields: ['id'] })` / `deleteMany({ filter, fields: ['id'] })` / `DELETE …?fields=id`. Without one, the engine returns **422 and the row remains**. Confirm with a read-back.
+- **SDK call shape:** `method(parameters, options?)`. The first argument is an object (`{ key, data, fields, include, filter, sort, limit, offset, meta }`), never a positional id. The optional second argument is `{ unwrapEnvelope: false }`, needed to keep `meta.totalCount`. Collections are cased as named (`client.Articles`).
+- **`fields` selects scalars, `include` selects relations.** Example: `fields: ['id'], include: { author: { fields: ['name'] } }`. Don't use dotted paths, nested objects in `fields`, or `deep`. Inside `include`, arguments are `filter`/`sort`/`limit`/`offset` (no underscore), and operators keep underscores (`_eq`).
+- **Filters** use underscore operators (`_eq`, `_in`, `_null`), combined with `_and`/`_or`/`_not`, and `_some`/`_every`/`_none` on to-many relations. The full [operator table](references/rest-api.md#query-engine) is in the REST reference. `_null` works only on nullable fields. Field and connector capabilities decide what is filterable, sortable, and writable.
+- **Sort uses the object form** `sort: [{ field: { direction: 'desc' } }]`. `-field` is rejected.
+- **No `search`, no `page` or cursor, no aggregates.** Use `limit` (default 100) + `offset` + a stable sort, and `meta` for `totalCount`. **Unknown parameters can be silently ignored with a 200**, so a success status doesn't prove a parameter was applied.
+- **64-bit integers are strings on output.** Input accepts `string | number`, but values outside the safe integer range can round before transmission, so pass large integers as strings. Decimals are strings too. Don't convert money through floats.
+- **Built-in SDK transport errors:** only 401 (`MonospaceAuthError`) and 403 (`MonospacePermissionError`) get subclasses. Validation failures (400/422), 402 license limits, and 404s arrive as base `MonospaceError`, so branch on `.status`. `MonospaceValidationError` is not currently thrown.
+- **One credential per request.** A bearer token plus a stale session cookie returns 400. **API keys act as their subject user**, with no per-key scope. Creating another key for the same user doesn't change what it can do.
+- **Check the license before designing access control.** The keyless Starter profile allows 0 custom roles, 0 custom policies, 0 service accounts, and 1 workspace (402 otherwise). Client-side filtering with administrator credentials is not tenant isolation.
 
-**5. Recover, don't loop.**
-If an approach fails 2-3 times, stop and reconsider — check the error body (it carries a `message`), the schema, and permissions. Retrying the same call rarely fixes it.
+## Connect
 
-## Critical traps (read before writing any data code)
+You need the **host**, the **workspace** (its `apiName`, used as the URL segment in `/api/<workspace>/...`), and a **token**: an API key (Studio → Account → Access → API Keys) or a user access token from login. Use `Authorization: Bearer <token>`. If login returns `requireAcceptTerms: true`, surface the pending Studio onboarding step to the operator; successful API calls do not imply terms acceptance. Details: [mcp-and-auth.md](references/mcp-and-auth.md).
 
-These are verified, easy-to-miss behaviors. Getting them wrong fails silently.
+## MCP server (agentic CRUD and schema work)
 
-- **Responses are enveloped as `{ "data": ... }`.** A list returns `{ data: [...] }`, a single item `{ data: {...} }`. The SDK strips the *top-level* envelope for you, but **nested to-many relations stay enveloped** — relation data sits under `relation.data`, and the SDK does NOT unwrap it. Reach into `item.<relation>.data` (to-one relations are accessed directly).
-- **Methods take a single options object, not positional args.** `readOne`/`updateOne`/`deleteOne` take `{ key, ... }`; `createOne({ data: <object>, fields })` (single object under `data`); `createMany` takes `{ data, fields }`; `updateMany` takes `{ filter, data, fields }`; `deleteMany` takes `{ filter, fields? }`. There is no `readOne(id)` form. Collections are cased as named (`client.Articles`, not `client.articles`).
-- **Deletes return no content unless `fields` or `include` is provided.** `deleteOne({ key })` / `deleteMany({ filter })` return void; provide a selection only when you need deleted rows back.
-- **`fields` selects scalars; `include` selects relations.** Use `fields: ['id'], include: { author: { fields: ['name'] } }`. The SDK defaults to all scalars at each level; relations require `include`. Do not use nested objects in `fields`, dotted relation paths, or `deep`. Inside `include`, use plain `filter`/`sort`/`limit`/`offset`; filter operators still have underscores (`_eq`, etc.).
-- **Query support is field- and operation-specific.** A field's type alone does not guarantee it is filterable, sortable, or writable. Use current generated types/OpenAPI to check capabilities.
-- **Filter operators are underscore-prefixed.** `_eq _neq _lt _lte _gt _gte _in _nin _between _nbetween _contains _icontains _ncontains _nicontains _starts_with _nstarts_with _ends_with _nends_with _null`; combine with `_and _or _not`; for to-many relations use quantifiers `_some _every _none`. `_null` is only valid on nullable fields. Full table in [references/rest-api.md](references/rest-api.md).
-- **Sort uses the object form, not `-field`.** Use `sort: [{ <field>: { direction: 'asc' | 'desc' } }]`. The `-created_at` shorthand is rejected by the engine.
-- **No `search` param, no `page`/cursor pagination, no aggregates yet.** Paginate with `limit` (default 100) + `offset`; request `meta=totalCount` when you need the total matching row count. Do not send aggregate/group params expecting computed results.
+`POST https://<host>/api/<workspace>/mcp`: per workspace, stateless streamable HTTP, protocol `2025-11-25`. The caller needs the `ai:mcp` entitlement, and anonymous access is 403 unless the public role was explicitly granted it.
 
-## Connect to a Monospace instance
-
-You need three things: the **host** (engine base URL), the **workspace** slug (Monospace is multi-workspace; most data routes are `/api/<workspace>/...`), and a **token**. Create an API key in the Studio under **Account → Access → API Keys** (`/account/access#api-keys`; API endpoint `POST /api/system/api-keys`), or log in with `POST /api/auth/providers/<name>/password/login` for a user access token. Prefer `Authorization: Bearer <token>` for agents/scripts; the API also accepts an `access_token` query parameter or session cookie, but send only one credential source per request.
-
-Two ways an agent works with the data:
-- **MCP server** — best for agentic CRUD + schema work inside a chat/coding agent. Set it up below.
-- **SDK / REST** — best for writing application code. See [references/sdk.md](references/sdk.md) and [references/rest-api.md](references/rest-api.md).
-
-## MCP server setup (recommended for agentic work)
-
-The Monospace MCP server is served by the engine, **per workspace**, over streamable-HTTP.
-
-- **Endpoint:** `POST https://<host>/api/<workspace>/mcp` (per-workspace; POST only; protocol `2025-11-25`).
-- **Auth:** `Authorization: Bearer <token>` or, only when headers are unavailable, `access_token=<token>` query parameter populated from a secret store (API key or user access token). Do not send both. Use session cookies for browser flows, not agent config. The workspace needs the `ai:mcp` entitlement, and each tool runs under the token's RBAC.
-
-Config (`.mcp.json` at the project root):
 ```jsonc
-{
-  "mcpServers": {
-    "monospace": {
-      "type": "http",
-      "url": "https://YOUR_HOST/api/YOUR_WORKSPACE/mcp",
-      "headers": { "Authorization": "Bearer ${MONOSPACE_API_KEY}" }
-    }
-  }
-}
+// .mcp.json
+{ "mcpServers": { "monospace": { "type": "http",
+  "url": "https://YOUR_HOST/api/YOUR_WORKSPACE/mcp",
+  "headers": { "Authorization": "Bearer ${MONOSPACE_API_KEY}" } } } }
 ```
 
-**Tools exposed (7):** `list_items`, `create_items`, `update_item`, `delete_item` (CRUD under the caller's permissions), `read_schema` (needs `dataModel:read`), `read_data_sources` (`dataModel:read` + `dataSource:read`), and `mutate_schema` (`dataModel:edit` — can be destructive).
+Seven tools: `list_items`, `create_items`, `update_item`, `delete_item`, `read_schema`, `read_data_sources`, `mutate_schema` (can be destructive). **A tool being listed doesn't mean the caller may run it.** Each call is checked against the subject's permissions. To diagnose, send a real `initialize` request with `Content-Type: application/json` and `Accept: application/json, text/event-stream`, not a bare POST: [mcp-and-auth.md](references/mcp-and-auth.md#diagnose-with-a-real-initialize-request).
 
-**MCP limits:** `list_items` requires a scalar `fields` array and does not expose `include`; use SDK/REST for relational selections. Roles do not inherit from other roles; check directly assigned roles and their policies when diagnosing access failures. See [MCP and auth](references/mcp-and-auth.md).
-
-**Troubleshooting:** `curl -s -o /dev/null -w "%{http_code}" -X POST https://<host>/api/<workspace>/mcp` — a `401` means it's up but unauthenticated (expected without a token); `403` means the credential is valid but forbidden by RBAC or missing entitlement; `404` means the path is wrong; a hang or refusal means it's unreachable. If tools aren't visible: confirm the URL includes the right `<workspace>`, the credential is present (`Authorization: Bearer` header or `access_token` query parameter, not both), and the workspace has `ai:mcp` enabled. Full details + RBAC and the per-tool input schemas: [references/mcp-and-auth.md](references/mcp-and-auth.md).
-
-## Generate a typed SDK client (codegen)
+## Generate a typed client
 
 ```bash
-npx @monospace/sdk init       # scaffold monospace.config.ts (output defaults to ./src/generated/monospace)
-npx @monospace/sdk login      # store credentials in the OS keyring (or set MONOSPACE_API_KEY)
-npx @monospace/sdk generate   # fetch the live OpenAPI and emit <output>/index.ts
+# For a new project; keep existing compatible pins in an established project.
+npm install https://pkg.pr.new/directus/monospace/@monospace/sdk@31d52d0
+npm install --save-dev https://pkg.pr.new/directus/monospace/@monospace/cli@31d52d0
+npx monospace sdk init --url https://YOUR_HOST --workspace YOUR_WORKSPACE --dir ./src/generated/monospace
+npx monospace login --url https://YOUR_HOST        # or set MONOSPACE_API_KEY
+npx monospace sdk generate                          # writes <output>/index.ts
 ```
-The generated `index.ts` exports a `createClient` bound to your instance's schema — import it from your generated output (default `./src/generated/monospace`; match your project's path/alias), not from `@monospace/sdk`, for fully-typed queries. Remote mode fetches `GET /api/<workspace>/openapi` (auth required); local mode reads a saved OpenAPI JSON via `input`. Details, flags, and a zero-to-typed-client sequence: [references/sdk.md](references/sdk.md).
+Import `createClient` from the generated output, not from `@monospace/sdk`. The old `npx @monospace/sdk …` commands no longer work. The engine, SDK, and CLI have independent version numbers. Tested pins, config, and flags: [sdk.md](references/sdk.md).
 
-## Reference guides
+## References
 
-| Topic | Reference | Load when |
-| --- | --- | --- |
-| Query engine, envelope, endpoints, error shapes, raw REST | [references/rest-api.md](references/rest-api.md) | Calling the API directly, or in a non-TS language |
-| `createClient`, typed delegates, codegen workflow, error classes | [references/sdk.md](references/sdk.md) | Writing TypeScript against the SDK or generating types |
-| CRUD recipes with the traps annotated | [references/data-workflows.md](references/data-workflows.md) | Reading/writing data and you want a known-good pattern |
-| MCP tools + schemas, API keys, auth modes, `.mcp.json` | [references/mcp-and-auth.md](references/mcp-and-auth.md) | Setting up MCP, authenticating, or choosing/using a tool |
+| Load when | Reference |
+| --- | --- |
+| Writing TypeScript: install and pin packages, CLI codegen, `createClient`, browser auth, pagination with a total, types, errors | [references/sdk.md](references/sdk.md) |
+| Reading or writing data: CRUD, relation writes (`_connect`/`_create`), deletes, money, read-back verification | [references/data-workflows.md](references/data-workflows.md) |
+| Calling HTTP directly: query parameters, envelopes by endpoint, value encoding, item routes, status codes | [references/rest-api.md](references/rest-api.md) |
+| Starting from scratch: instance info, license, workspaces, schema discovery, the schema manifest, migrations | [references/bootstrap-and-schema.md](references/bootstrap-and-schema.md) |
+| Logging in, API-key authority, roles and license preflight, MCP setup, tools, and diagnostics | [references/mcp-and-auth.md](references/mcp-and-auth.md) |

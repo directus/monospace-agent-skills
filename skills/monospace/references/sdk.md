@@ -1,173 +1,236 @@
-# Monospace SDK (`@monospace/sdk`)
+# Monospace SDK (`@monospace/sdk`) and CLI (`@monospace/cli`)
 
-The typed TypeScript client. The reliable path: generate a client from your instance, import `createClient` from the **generated output** (typed to your schema), and let TypeScript **infer** result types from your field selections. Do not hand-write result types.
+The reliable path: generate a client from your instance with the CLI, import `createClient` from the **generated output**, and let TypeScript infer result types from your selections. Examples use illustrative collections (`Articles`, `comments`, `author`), so adapt names and types to your generated schema.
 
-## Get up and running
+## Packages and versions
 
-Mirrors the official quickstart (docs: `/developer/sdk`, `/developer/sdk/client-setup`).
+- **`@monospace/sdk`**: the runtime client (`createClient`, error classes) and config types (`@monospace/sdk/config`). It has **no executable**, so `npx @monospace/sdk init|login|generate` fails ("could not determine executable").
+- **`@monospace/cli`**: the `monospace` binary, with `login`, `logout`, `whoami`, `sdk init`, `sdk generate`, and `extension create|build`. There is no `validate` command.
 
-1. **Install** — first check `package.json`; a Monospace project often already depends on it. Only if missing:
-   ```bash
-   npm install @monospace/sdk
-   ```
-   Requires TypeScript with `"strict": true`.
-2. **Create the config** — `npx @monospace/sdk init` writes `monospace.config.ts`:
-   ```ts
-   import { defineConfig } from '@monospace/sdk/config';
+Keep an established project's compatible package pins. For a new project targeting the audited engine, install this exact continuous-build pair; the CLI is a dev dependency:
+```bash
+npm install https://pkg.pr.new/directus/monospace/@monospace/sdk@31d52d0
+npm install --save-dev https://pkg.pr.new/directus/monospace/@monospace/cli@31d52d0
+```
+Then run `npx monospace …`. With other package managers use `pnpm exec monospace`, `yarn monospace`, or `bunx monospace`. For one-off use without installing, `npx @monospace/cli …` works.
 
-   export default defineConfig({
-     url: 'https://example.monospace.io',
-     workspace: 'blog',
-     output: './src/generated/monospace', // default — set to your project's layout
-   });
-   ```
-3. **Authenticate the generator** — set `MONOSPACE_API_KEY` (e.g. in `.env`) or run `npx @monospace/sdk login` (OS keychain). Create the key in the Studio: **Account → Access → API Keys**.
-4. **Generate** — `npx @monospace/sdk generate` reads your instance's OpenAPI and writes `<output>/index.ts`.
-5. **Create the client** — import from the **generated output**, not `@monospace/sdk`:
-   ```ts
-   import { createClient } from './generated/monospace'; // adjust to your `output` path / tsconfig alias
+**The engine, SDK, and CLI are versioned independently.** The combination verified for this skill was engine source `4f6f48c` (reports `0.7.0`) with SDK `0.8.0` and CLI `0.1.0`, both from continuous build `31d52d0`. The published releases also use those package version numbers, but this audit verified the continuous artifacts above. Do not identify the tested code by version number alone. A later engine may need a different pair. The resulting pins belong in these sections:
+```jsonc
+// package.json: merge these entries into the existing sections.
+{
+  "dependencies": {
+    "@monospace/sdk": "https://pkg.pr.new/directus/monospace/@monospace/sdk@31d52d0"
+  },
+  "devDependencies": {
+    "@monospace/cli": "https://pkg.pr.new/directus/monospace/@monospace/cli@31d52d0"
+  }
+}
+```
+Otherwise use whatever pair the project already has. Regenerate against the target instance, then typecheck, whenever the engine or packages change.
 
-   const client = createClient({
-     url: 'https://example.monospace.io',
-     workspace: 'blog',
-     apiKey: process.env.MONOSPACE_API_KEY,
-   });
-   ```
-6. Re-run `generate` whenever the schema or engine/SDK version changes.
+## Generate types with the CLI
 
-> The import path is illustrative. **Match it to the project:** whatever `output` is set in `monospace.config.ts` and however the project's `tsconfig` resolves paths (a relative import, or an alias like `~/` or `@/`). Don't blindly paste `./src/generated/monospace`.
+```bash
+npx monospace sdk init --url https://YOUR_HOST --workspace YOUR_WORKSPACE --dir ./src/generated/monospace
+npx monospace login --url https://YOUR_HOST     # API key or email/password → OS keyring
+npx monospace sdk generate                       # fetches /api/YOUR_WORKSPACE/openapi → <output>/index.ts
+```
 
-Haven't generated yet? `@monospace/sdk` exports a generic `createClient` with the same config, but it is **not** typed to your schema — generate and import from the output instead.
+`sdk init` (prompts for anything you don't pass; `--yes` confirms overwriting an existing config) writes `monospace.config.ts`:
+```ts
+import type { MonospaceConfig } from '@monospace/sdk/config';
 
-## Construct the client
+export default {
+	url: 'https://YOUR_HOST',
+	workspace: 'YOUR_WORKSPACE',
+	output: './src/generated/monospace',
+} satisfies MonospaceConfig;
+```
+`defineConfig` from `@monospace/sdk/config` is an equivalent helper. **Local mode:** set `input: './openapi.json'` (plus `output`) to generate from a saved OpenAPI file with no network or login; `url`/`workspace` are then ignored. Never put credentials in the config file, because the CLI rejects configs that contain them.
 
-`createClient({ url, workspace, apiKey })` — base URL becomes `${url}/api/${workspace}`. Auth modes:
-- **Static bearer** — pass `apiKey`; sent as `Authorization: Bearer <apiKey>`.
-- **Cookie / session** — browser apps; the client sends credentials instead of a bearer.
-- **Custom headers** — supply your own header map.
+- **Target resolution:** URL and workspace are each taken from the first of: `--url`/`--workspace` flags, `MONOSPACE_URL`/`MONOSPACE_WORKSPACE` env vars, or the config file. A `.env` in the working directory is loaded, but real env vars win over it.
+- **Credential priority** (`sdk generate`, `whoami`): `--api-key` flag, then `MONOSPACE_API_KEY`, then the keyring entry for that instance URL. A stored login session is refreshed once on 401/403. A rejected flag or env key is not retried: fix or unset it, because it overrides the keyring.
+- **Permissions:** remote generation reads `GET /api/<ws>/openapi`, which needs `openApiSchema:read`.
+- **Automation:** `--no-input` turns prompts into errors (prompts are also off without a TTY or when `CI` is set). `--json` prints one JSON result on stdout and exits 1 on failure. For a non-interactive login use `echo "$MONOSPACE_KEY" | npx monospace login --url https://YOUR_HOST --api-key-stdin`, or skip login and set `MONOSPACE_API_KEY`.
+- `npx monospace whoami --url https://YOUR_HOST` shows the resolved target and identity. For `sdk init` and `sdk generate`, `--config <path>` selects another config file.
 
-The SDK does **not** implement login/refresh — obtain a token out of band (an API key from the Studio, or a user access token) and pass it.
+Re-run `sdk generate` whenever the schema or the packages change.
+
+## Create the client
+
+```ts
+import { createClient } from './generated/monospace'; // match `output` and the project's tsconfig paths/aliases
+
+const client = createClient({
+	url: process.env.MONOSPACE_URL!,          // e.g. https://YOUR_HOST
+	workspace: process.env.MONOSPACE_WORKSPACE!,
+	apiKey: process.env.MONOSPACE_API_KEY,     // any bearer token: API key or user access token
+});
+```
+
+The config accepts `url`, `workspace`, `apiKey?`, `unwrapEnvelope?` (default `true`), `strictNull?` (default `true`, which makes every field `| null`), and `http?` (a custom transport). Requests go to `${url}/api/${workspace}`. The default transport sends `Authorization: Bearer <apiKey>` with fetch `credentials: 'same-origin'` when `apiKey` is set, and with no `apiKey` it sends cookies (`credentials: 'include'`). `@monospace/sdk` also exports an untyped `createClient`. Use it only before you have generated types.
+
+**The SDK has no login or refresh.** Get tokens from the CLI, the Studio, or the auth routes ([mcp-and-auth.md](mcp-and-auth.md#log-in-over-http)).
+
+### Browser apps
+
+Never ship an administrator login or API key in frontend code (`VITE_*`, `NEXT_PUBLIC_*`, and similar variables are public). Pick one of these:
+
+1. **Session cookies:** the user signs in through session-mode login (`POST /api/auth/providers/local/password/login` with `credentials: 'include'` and no `mode`). Then create the client **without** `apiKey`, and cookies authenticate each request. Serve the app and `/api` from one origin (for example a dev-server or reverse proxy), because the cookies are `SameSite=Lax` and scoped to `/api`. Refresh with `POST /api/auth/refresh` (body `{}`) before `expires`, or after a 401.
+2. **Backend-for-frontend:** keep API keys or service credentials on your server, and have the server enforce per-user scoping.
+3. **In-memory bearer user token** (JSON-mode login): never combine it with cookies. A bearer token plus a stale `monospace_session` cookie returns **400**, and the default transport's `same-origin` setting sends that cookie through a same-origin proxy. Strip the cookie at the proxy, or use a transport with `credentials: 'omit'`:
+
+```ts
+import { mapEngineError, type ClientConfig } from '@monospace/sdk';
+import { createClient } from './generated/monospace';
+
+type Query = Record<string, unknown>;
+
+// The SDK passes a flat query object (keys like 'filter[status][_eq]') and expects the raw JSON body back.
+function bearerOnlyHttp(getToken: () => string | Promise<string>): NonNullable<ClientConfig['http']> {
+	return ({ url, workspace }) => {
+		async function send<T>(method: string, path: string, options?: { body?: Query; query?: Query }): Promise<T> {
+			const target = new URL(`${url}/api/${encodeURIComponent(workspace)}${path}`, globalThis.location?.href);
+			for (const [key, value] of Object.entries(options?.query ?? {})) target.searchParams.set(key, String(value));
+			const response = await fetch(target, {
+				method,
+				credentials: 'omit',
+				headers: { Authorization: `Bearer ${await getToken()}`, ...(options?.body ? { 'Content-Type': 'application/json' } : {}) },
+				body: options?.body ? JSON.stringify(options.body) : undefined,
+			});
+			const text = await response.text();
+			let body: unknown;
+			try { body = text ? JSON.parse(text) : undefined; }
+			catch (error) { if (response.ok) throw error; } // preserve status for non-JSON proxy errors
+			if (!response.ok) {
+				throw mapEngineError(body && typeof body === 'object' && 'message' in body ? (body as { message: string }) : { message: text || 'Request failed' }, response.status);
+			}
+			return body as T;
+		}
+		return {
+			get: <T>(path: string, options?: { query?: Query }) => send<T>('GET', path, options),
+			post: <T>(path: string, options?: { body?: Query; query?: Query }) => send<T>('POST', path, options),
+			patch: <T>(path: string, options?: { body?: Query; query?: Query }) => send<T>('PATCH', path, options),
+			delete: <T>(path: string, options?: { query?: Query }) => send<T>('DELETE', path, options),
+		};
+	};
+}
+
+// getAccessToken: your in-memory user token (from JSON-mode login/refresh), never an admin/API key.
+const client = createClient({ url: '', workspace: 'YOUR_WORKSPACE', http: bearerOnlyHttp(getAccessToken) });
+```
+`url: ''` targets the current origin (behind a proxy that forwards `/api`). `createHttp` is not exported, so a custom transport has to implement `get`/`post`/`patch`/`delete` itself, as above. Keep the access token in memory and refresh it with the stored refresh token before it expires.
 
 ## Typed delegate API
 
-`createClient` returns a proxy with one delegate per collection, **cased as the collection is named** (`client.Articles`, not `client.articles`). Every method takes a **single options object** — there are no positional `id` arguments:
+`client.<Collection>` has one delegate per collection, **cased as the collection is named** (`client.Articles`, not `client.articles`). Every method takes:
+1. a **parameters object** (`key`, `data`, `fields`, `include`, `filter`, `sort`, `limit`, `offset`, `meta`). There is no positional `readOne(id)`.
+2. an optional **query-options object**, `{ unwrapEnvelope?: boolean }`, which controls this call's result shape.
 
 ```ts
 await client.Articles.readMany({ fields: ['id', 'title'], filter: { status: { _eq: 'published' } }, sort: [{ created_at: { direction: 'desc' } }], limit: 20 });
+await client.Articles.readFirst({ fields: ['id'], filter: { slug: { _eq: 'hello' } } }); // item or null
 await client.Articles.readOne({ key: 1, fields: ['id', 'title'], include: { author: { fields: ['name'] } } });
 await client.Articles.createOne({ data: { title: 'Hello', status: 'draft' }, fields: ['id'] });
 await client.Articles.createMany({ data: [{ title: 'A' }, { title: 'B' }], fields: ['id'] });
 await client.Articles.updateOne({ key: 1, data: { status: 'published' }, fields: ['id', 'status'] });
 await client.Articles.updateMany({ filter: { status: { _eq: 'draft' } }, data: { status: 'archived' }, fields: ['id'] });
-await client.Articles.deleteOne({ key: 1 });
-await client.Articles.deleteMany({ filter: { status: { _eq: 'archived' } } });
+await client.Articles.deleteOne({ key: 1, fields: ['id'] });                                  // selection required
+await client.Articles.deleteMany({ filter: { status: { _eq: 'archived' } }, fields: ['id'] }); // selection required
 ```
 
-- `key` = primary key; `data` = payload (single object for `createOne`/`updateOne`, array for `createMany`); `fields` and `include` select what comes back from reads, creates, updates, and deletes when provided.
-- CRUD methods are present per collection based on its capabilities. Fields also have operation-specific read/write/filter/sort capabilities; follow the generated types, not just the field's scalar type.
-- `$`-prefixed untyped variants are an escape hatch when you have no generated types (e.g. `client.$readMany('collection', options)`).
+- Reads, creates, and updates default to `fields: ['*']` (all scalars). **Deletes send no selection by default, and the audited engine rejects that with 422 and keeps the row**, so always pass `fields` (for example `['id']`) to deletes.
+- Which methods and fields exist, and which fields can be filtered, sorted, or written, follows the generated types, not just a field's scalar type.
+- The `$`-prefixed untyped methods (`client.$readMany('Articles', params, options)`) are for collections with no generated types.
+- Top-level `{ data }` is unwrapped for you. **Nested to-many relations stay enveloped** (`item.comments.data`), and to-one relations are direct (`item.author?.name`).
 
-Query options are flat in the method's parameter object: `fields` (scalar names), `include` (relation queries), `filter` (underscore operators), `sort` (object form), `limit`, `offset`. Operator table: [rest-api.md](rest-api.md).
+Relation writes (`_connect`, `_create`, …) are covered in [data-workflows.md](data-workflows.md#relations-on-write).
+
+## Pagination with a total count
+
+Unwrapping drops `meta`. Request the count and keep the envelope for that call:
+```ts
+import type { ArticlesReadManyParameters } from './generated/monospace';
+
+const pageSize = 25;
+const query = {
+	fields: ['id', 'title'],
+	filter: { status: { _eq: 'published' } },
+	sort: [{ id: { direction: 'asc' } }], // stable order across pages
+} as const satisfies ArticlesReadManyParameters;
+
+async function readPage(page: number) {
+	const { data, meta } = await client.Articles.readMany(
+		{ ...query, limit: pageSize, offset: (page - 1) * pageSize, meta: { totalCount: true } },
+		{ unwrapEnvelope: false },
+	);
+	return { items: data, totalCount: meta.totalCount, pageCount: Math.ceil(meta.totalCount / pageSize) };
+}
+```
+With `meta: { totalCount: true }` and `unwrapEnvelope: false`, the result is typed `{ data: Item[]; meta: { totalCount: number } }`. Setting `unwrapEnvelope: false` in `createClient` applies it to every call.
 
 ## Relations and aliases
 
 ```ts
 const articles = await client.Articles.readMany({
-  fields: ['id', 'headline:title'],
-  include: {
-    'writer:author': { fields: ['name'] },
-    comments: {
-      fields: ['id', 'body'],
-      filter: { approved: { _eq: true } },
-      sort: [{ created_at: { direction: 'desc' } }],
-      limit: 5,
-      include: { author: { fields: ['name'] } },
-    },
-  },
+	fields: ['id', 'headline:title'],
+	include: {
+		'writer:author': { fields: ['name'] },
+		comments: {
+			fields: ['id', 'body'],
+			filter: { approved: { _eq: true } },
+			sort: [{ created_at: { direction: 'desc' } }],
+			limit: 5,
+			include: { author: { fields: ['name'] } },
+		},
+	},
 });
-// Each article has headline, writer?.name, and comments?.data.
+// Each article has headline, writer?.name, and comments?.data[].author?.name.
 ```
 
-Every `include` value is a nested query. To-many relations accept `filter`, `sort`,
-`limit`, and `offset`; nullable to-one relations accept `filter`; required to-one
-relations accept selection only. Nested filters affect the included rows, while a
-top-level relation filter affects which parents are returned. Nested pagination is
-per parent.
+Every `include` value is a nested query. To-many relations accept `filter`, `sort`, `limit`, and `offset`. Nullable to-one relations accept `filter`, and required to-one relations accept selection only. A nested filter narrows the included rows, while a top-level relation filter (`filter: { comments: { _some: … } }`) narrows the parents. Nested pagination is per parent. `include: { author: {} }` selects the relation's default scalars. Use `fields: []` together with an `include` for a relation-only selection. Aliases (`responseName:sourceField`) work in `fields` and as include keys, and are inferred in the result type. Do not use dotted paths, nested objects in `fields`, or `deep`. Query semantics are in [rest-api.md](rest-api.md#query-engine).
 
-`include: { author: {} }` selects the relation's default scalar fields. Omitting
-`fields` defaults to all scalars at each level; relations always require `include`.
-Use `fields: []` with an `include` for a relation-only selection. An include value
-of `undefined` is omitted and yields an optional result property.
+## Use inferred types, don't hand-roll
 
-Aliases use `responseName:sourceField` in `fields` or as an `include` key and are
-inferred in the result type. Each relation alias can have its own query. With a
-wildcard, an explicit scalar alias replaces its source unless the original name is
-also explicitly selected. Do not use dotted paths, nested objects inside `fields`,
-or `deep`; see the [REST query guide](rest-api.md#query-engine).
+Result types are inferred from `fields` and `include`, including nested include chains (`order.lines.data[].product?.sku`). Unselected fields are type errors. Don't declare your own result interfaces.
 
-## Use inferred types — don't hand-roll
+Generated aliases are named `{Collection}{Op}…`, using the collection name exactly as it appears (`Articles` → `ArticlesReadManyParameters`).
 
-The generated client **infers** result types from your `fields` and `include` selections. Never declare your own interfaces for query results (docs: `/developer/sdk/type-system`).
+- **Name a result type:** `type ArticleCard = ArticlesReadManyResultItem<{ fields: ['id', 'title'] }>;`. `{Collection}{Op}Result` is the whole result and `{Collection}{Op}ResultItem` is one item.
+- **Reusable query params:** `as const satisfies {Collection}{Op}Parameters`. A `: Type` annotation widens `fields` to `string[]` and breaks inference.
+- **Typed wrapper functions:** keep inference with a const generic: `async function fetchArticles<const P extends ArticlesReadManyParameters>(params: P) { return client.Articles.readMany(params); }`
+- **Inputs and keys:** use generated `{Collection}CreateOneInput`, `{Collection}UpdateOneInput`, `{Collection}Key`. `{Collection}{Op}Args` is the full argument type (with `data`/`key`), and `{Collection}{Op}Parameters` covers query parameters only.
 
-- **Just use the result** — already typed and narrowed to the fields you selected:
-  ```ts
-  const articles = await client.Articles.readMany({ fields: ['id', 'title', 'status'] });
-  // articles: { id: string | null; title: string | null; status: string | null }[]
-  ```
-  Under the default `strictNull: true` every field is `| null`. Omitting `fields` returns all scalar fields; use `include` for relations.
-- **Relations follow cardinality** — to-one → `T | null` (access directly); to-many → `{ data: T[] }` (the envelope), e.g. `comments.data`.
-- **Name a result type** (component props, return values) → import generated result types instead of writing an interface:
-  ```ts
-  import type { ArticleReadManyResultItem } from './generated/monospace';
-  type ArticleCard = ArticleReadManyResultItem<{ fields: ['id', 'title'] }>;
-  ```
-  `{Collection}{Op}Result` = full result (array for `readMany`); `{Collection}{Op}ResultItem` = single-item shape.
-- **Reusable query params** → `satisfies {Collection}{Op}Parameters` with `as const`. Do NOT use a `: Type` annotation — it widens `fields` to `string[]` and kills inference:
-  ```ts
-  import type { ArticleReadManyParameters } from './generated/monospace';
-  const publishedArticles = {
-    fields: ['id', 'title'],
-    include: { author: { fields: ['name'] } },
-    filter: { status: { _eq: 'published' } },
-  } as const satisfies ArticleReadManyParameters;
-  const list = await client.Articles.readMany(publishedArticles); // still fully inferred
-  ```
-- **Typed function args** → preserve the caller's inference with a const generic:
-  ```ts
-  async function fetchArticles<const P extends ArticleReadManyParameters>(params: P) {
-    return client.Articles.readMany(params);
-  }
-  ```
-- **Inputs and keys** → use the generated `ArticleCreateOneInput`, `ArticleUpdateOneInput`, `ArticleKey` (string or number per your PK) — not hand-typed shapes.
-
-Two type families per operation: `{Collection}{Op}Parameters` (query params only) and `{Collection}{Op}Args` (full args incl. `data`/`key`; what the methods accept). Prefer `Args`; use `Parameters` for reusable query fragments.
-
-## Traps that bite SDK callers
-
-- **Methods take one options object, not positional args** — `readOne({ key })`, never `readOne(id)`.
-- **Collections are cased as named** — `client.Articles`, not `client.articles`.
-- The top-level `{ data }` envelope is stripped for you, but **nested to-many relations stay enveloped** — read `item.<relation>.data` (to-one is direct).
-- **`createOne` takes a single object under `data`** (`createMany` takes an array under `data`).
-- **Deletes return no content unless `fields` or `include` is provided** — call `deleteOne({ key })` or `deleteMany({ filter })` for void deletes; pass a selection when you need deleted rows back.
-- **`fields` omitted → all scalar fields** — select relations with `include`.
-- **Link relations with `_connect`, not a raw id** — a bare `author: <id>` is rejected. The payload shape depends on *both* context and cardinality: on create, to-one is a singular object (`author: { _connect: { key: { id } } }`) and to-many an array (`tags: [{ _connect: { keys: [{ id }] } }]`); on update **every** relation is array-wrapped, to-one included (`author: [{ _connect: { key: { id } } }]`). Array-wrapping a to-one on create is an error. `_connect` takes `key` (object) for to-one, `keys` (array) for to-many. Create allows only `_connect` / `_create`; update adds `_disconnect` / `_update` / `_delete`. Details: [relational data](/developer/api/relational-data).
+**Numbers:** 64-bit integer fields are typed `Int64` = `string` on output and `Int64Input` = `string | number` on input. Pass large values as strings, because values outside the safe integer range can round before transmission. Decimal fields are strings. Use `BigInt(value)` for integer strings and a decimal library for decimal amounts; avoid floating-point conversion of money.
 
 ## Errors
 
-The SDK maps engine errors to typed exceptions: `MonospaceError` (base, carries `status`), `MonospaceNotFoundError`, `MonospaceAuthError` (401), `MonospacePermissionError` (403), `MonospaceValidationError`. Use `instanceof` to branch. `MonospaceNotFoundError` is raised for 404s that carry collection context (a typed `readOne`); a bare transport-level 404 surfaces as a generic `MonospaceError`, so check `status` when handling not-found generically.
+| Class | Thrown for |
+| --- | --- |
+| `MonospaceAuthError` | 401 |
+| `MonospacePermissionError` | 403 |
+| `MonospaceError` (base, `.status`, `.meta`, `.source`) | everything else: **400/422 validation**, 402 license limit, 404, 5xx |
+| `MonospaceNotFoundError` | only when a transport passes collection context to `mapEngineError`. The built-in transport doesn't, so 404s arrive as base `MonospaceError` with `status === 404` |
+| `MonospaceValidationError` | exported but **not currently thrown** by the built-in transport. Don't rely on it |
 
-## Codegen reference
+```ts
+import { MonospaceAuthError, MonospaceError, MonospacePermissionError } from '@monospace/sdk';
 
-- **CLI** (bin is `monospace`; `npx @monospace/sdk <cmd>` runs it without a global install): `init`, `generate`, `login`, `logout`, `validate`.
-- **Config** (`monospace.config.ts` / `.js`, discovered via jiti):
-  - **Remote mode** — `generate` fetches `GET /api/<workspace>/openapi` (auth required) via your keyring token or `MONOSPACE_API_KEY`.
-  - **Local mode** — set `input` to a saved OpenAPI JSON file; no network. (Hand-authored; `init` scaffolds remote only.)
-  - `output` — where `index.ts` is written (default `./src/generated/monospace`).
-- The generator consumes the `x-monospace-mappings` OpenAPI extension to map operations to typed collection delegates; the emitted `index.ts` exports a `createClient` already bound to your `Schema`, plus the per-collection type aliases above.
-- **CLI auth**: credentials stored in the OS keyring (service `monospace-cli`, keyed by URL origin). Header priority `--api-key` / `MONOSPACE_API_KEY` first, then the keyring token (auto-refreshed, retried once on 401/403).
+function describe(err: MonospaceError): string {
+	const messages: string[] = [];
+	for (let e: MonospaceError | undefined = err; e; e = e.source) messages.push(e.message);
+	return messages.join(' → '); // the nested `source` chain holds the specific cause
+}
 
-## See also (docs)
-
-- Type System — `/developer/sdk/type-system` (inference, result/param/input types, `satisfies`)
-- Client Setup — `/developer/sdk/client-setup` (install, `strictNull`)
-- Field Selection / Relational Data — `/developer/api/field-selection`, `/developer/api/relational-data`
+try {
+	await client.Articles.createOne({ data: { title: 'Hello' }, fields: ['id'] });
+} catch (err) {
+	if (err instanceof MonospaceAuthError) { /* 401: missing/expired/revoked token */ }
+	else if (err instanceof MonospacePermissionError) { /* 403: the token's subject lacks permission */ }
+	else if (err instanceof MonospaceError && (err.status === 400 || err.status === 422)) { /* fix payload: describe(err) */ }
+	else if (err instanceof MonospaceError && err.status === 402) { /* license limit: tell the user */ }
+	else if (err instanceof MonospaceError && err.status === 404) { /* missing item/route */ }
+	else throw err;
+}
+```
+A rejected nested create (for example `_create` with an invalid `_connect` key) fails as a whole and leaves no parent row.
