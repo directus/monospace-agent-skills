@@ -68,5 +68,5 @@ Import `createClient` from the generated output, not from `@monospace/sdk`. The 
 | Writing TypeScript: install and pin packages, CLI codegen, `createClient`, browser auth, pagination with a total, types, errors | [references/sdk.md](references/sdk.md) |
 | Reading or writing data: CRUD, relation writes (`_connect`/`_create`), deletes, money, read-back verification | [references/data-workflows.md](references/data-workflows.md) |
 | Calling HTTP directly: query parameters, envelopes by endpoint, value encoding, item routes, status codes | [references/rest-api.md](references/rest-api.md) |
-| Starting from scratch: instance info, license, workspaces, schema discovery, the schema manifest, migrations | [references/bootstrap-and-schema.md](references/bootstrap-and-schema.md) |
+| Starting from scratch: instance info, license, workspaces, schema discovery, bundled `scripts/schema-view.mjs` decoder, migrations | [references/bootstrap-and-schema.md](references/bootstrap-and-schema.md) |
 | Logging in, API-key authority, roles and license preflight, MCP setup, tools, and diagnostics | [references/mcp-and-auth.md](references/mcp-and-auth.md) |

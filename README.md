@@ -85,6 +85,8 @@ For Codex, use the commented template in [`.codex/config.toml`](.codex/config.to
 ```
 skills/monospace/
   SKILL.md                    # entry point: principles, traps, MCP setup, codegen
+  scripts/schema-view.mjs     # dependency-free manifest summary and collection/query decoder
+  tests/schema-view.test.mjs  # run with node --test
   references/
     sdk.md                    # packages/pins, CLI codegen, createClient, browser auth, types, errors
     data-workflows.md         # CRUD + relation-write recipes with the traps annotated
