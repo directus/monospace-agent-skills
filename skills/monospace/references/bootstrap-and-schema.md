@@ -68,7 +68,26 @@ To discover metadata columns, request `?fields=*&limit=1`, then narrow the selec
 Other discovery paths:
 - **MCP `read_schema`**: the easiest option inside an agent session ([mcp-and-auth.md](mcp-and-auth.md#tools-7)).
 - **Workspace OpenAPI** (`GET /api/<ws>/openapi`, needs `openApiSchema:read`): the generated contract for **item** routes (`/items/<collection>`), with request/response shapes per collection and `x-monospace-mappings` for codegen. It is the right input for `monospace sdk generate` and for item payload shapes. It does **not** list the schema, structure, manifest, or most management routes.
-- **Schema manifest** `GET /api/<ws>/schema`: a bare, compact, machine-oriented document (`formatVersion`, `strings`, `primitiveTypes`, `monospaceSchema`, `querySchema`) that needs a decoder. Prefer the structure routes for agent discovery. The manifest sends a weak `ETag`, and a matching `If-None-Match` returns **304**. Use that only to revalidate a cached manifest. It is not a concurrency token: schema migrations do not require `If-Match`.
+- **Schema manifest** `GET /api/<ws>/schema`: a bare, compact, machine-oriented document (`formatVersion`, `strings`, `primitiveTypes`, `monospaceSchema`, `querySchema`) that uses interned strings and array references. Use the bundled [schema-view script](../scripts/schema-view.mjs) to inspect it (recipe below), or the structure routes for individual metadata queries. The manifest sends a weak `ETag`, and a matching `If-None-Match` returns **304**. Use that only to revalidate a cached manifest. It is not a concurrency token: schema migrations do not require `If-Match`.
+
+### Decode a saved manifest
+
+Use the bundled `scripts/schema-view.mjs` with Node.js 18 or newer; no npm install is needed. Resolve the script path relative to this skill's directory, not the application's working directory. It reads files or stdin and makes no network requests.
+
+```bash
+curl --fail-with-body -sS "https://YOUR_HOST/api/YOUR_WORKSPACE/schema" \
+  -H "Authorization: Bearer $TOKEN" -o schema.json
+node /path/to/monospace/scripts/schema-view.mjs schema.json
+node /path/to/monospace/scripts/schema-view.mjs schema.json --collection Orders
+node /path/to/monospace/scripts/schema-view.mjs schema.json --collection Orders --query
+```
+
+- The default JSON summary lists user collections, field/relation counts, and available operations. Add `--system` to include system collections; their presence does not make them accessible through `/items`.
+- `--collection <apiName>` resolves stored types, defaults, nullability, indexes (including primary keys), relation targets and linking fields. It also shows each operation's output fields, filter members and constraints, sort directions, metadata, and writable fields/relation operations from `querySchema`.
+- `--query` adds all reachable query types, with decoded names, enum values, and constraints. Primitive types and enum values are also shown inline in the collection view. References such as `i12`, `[o3]`, and `p0?` mean input object, list of output objects, and nullable primitive. Look them up in `queryTypes` after removing list/nullable wrappers. References stay shared to preserve cycles; a highly connected schema can still produce a large graph. Start with the summary and collection view.
+- Pass `-` instead of a filename to read stdin. Unsupported `formatVersion` values, invalid references, malformed JSON, and unknown collections exit nonzero with a diagnostic on stderr and no partial JSON on stdout.
+
+**Capabilities are schema support, not caller permissions.** This is not an authorization check. Nested relation writes can expose different capabilities from the target collection's top-level operations; inspect the relation's query types rather than substituting the target's capabilities. The v1 manifest omits union relations, so this tool cannot recover them. Use generated SDK types or OpenAPI for application code.
 
 ## 4. Change the schema
 
