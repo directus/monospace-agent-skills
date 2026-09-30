@@ -1,4 +1,5 @@
-# Copy this block into your local Codex config and fill in the real host/project.
+# Copy this block into your local Codex config and fill in the real host/workspace.
+# The token's subject user needs the `ai:mcp` entitlement in that workspace.
 # [mcp_servers.monospace]
-# url = "https://YOUR_HOST/api/YOUR_PROJECT/mcp"
+# url = "https://YOUR_HOST/api/YOUR_WORKSPACE/mcp"
 # bearer_token_env_var = "MONOSPACE_API_KEY"

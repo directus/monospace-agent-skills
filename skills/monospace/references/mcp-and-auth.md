@@ -1,31 +1,65 @@
-# Monospace MCP server + authentication
+# Monospace authentication + MCP server
 
-How to connect an agent to the Monospace MCP server, what it exposes, and how auth works across the MCP, REST, and SDK.
+Covers how credentials work, how to log in over HTTP, what an API key can do, license and permission preflights, and how to connect to and diagnose the per-workspace MCP server.
 
-## Authentication model
+## Credentials
 
-Everything authenticates with a token. Two kinds are interchangeable on the wire:
-- **API key** — create one in the Studio under **Account → Access → API Keys** (`/account/access#api-keys`); for automation it is also available as `POST /api/system/api-keys`. Best for agents. Carries its own RBAC.
-- **User access token** — obtained by logging in (`POST /api/auth/providers/<name>/password/login`, commonly the `local` provider). Carries the user's RBAC.
+An authenticated request uses **exactly one** credential source:
+- `Authorization: Bearer <token>`: preferred for agents, scripts, and servers.
+- `access_token=<token>` query parameter: only for clients that cannot set headers (URLs end up in logs and config).
+- The session cookie: for browser sessions.
 
-Authenticated API requests accept exactly one credential source: `Authorization: Bearer <token>`, `access_token=<token>` query parameter, or the session cookie. For MCP, prefer the `Authorization` header; query-string tokens are a fallback only for clients that cannot set headers, because URLs may be stored in config or logs. Keep tokens out of source; use an env var (`MONOSPACE_API_KEY`) or your agent's secret store, including for URL token interpolation. Use cookies for browser sessions, not agent config.
+Sending two sources fails. In particular, a valid bearer token **plus a stale session cookie returns 400** even though the bearer token alone works. Keep tokens in an env var (`MONOSPACE_API_KEY`) or a secret store, never in source or committed config.
 
-### Roles and access control
+Two token kinds are accepted on the wire:
+- **User access token**: short-lived and paired with a refresh token, obtained by logging in.
+- **API key**: a long-lived token created in the Studio under **Account → Access → API Keys**, or with `POST /api/system/api-keys` (the response's `data.key` field is the token, so store it right away).
 
-- **Roles are flat.** Assign roles explicitly; inspect the user's directly assigned roles and their policies when diagnosing access failures.
-- **Public and administrator roles are provisioned automatically per workspace.** These built-in roles cannot be updated or deleted, and the public role cannot be attached to a user. Do not try to recreate or modify them as ordinary custom roles.
-- **Suspended users cannot authenticate.** Check user status as well as token validity and permissions when diagnosing access failures.
+### API key authority
+
+An API key **acts as its subject user**, with that user's roles and policies. Nothing in the key itself scopes it: the creation input has only the user, a name, a description, and an expiry, with no per-key role or policy. So:
+- Minting a new key does not give you more or less access than that user already has. To change what a key can do, change the subject's roles or policies (where the license allows it), or use a key for a different user or service account.
+- Deleting a key revokes it (subsequent requests get 401).
+- Treat an administrator's key as an administrator credential.
+
+## Log in over HTTP
+
+The SDK has no login or refresh helpers. Use the CLI (`monospace login`, see [sdk.md](sdk.md#generate-types-with-the-cli)) or these routes. The provider is usually `local`.
+
+```bash
+# Requires jq and exported MONOSPACE_EMAIL / MONOSPACE_PASSWORD.
+# JSON-encode credentials; capture the token without printing it.
+TOKEN="$(
+  jq -n '{email: env.MONOSPACE_EMAIL, password: env.MONOSPACE_PASSWORD, mode: "json"}' |
+  curl --fail-with-body -sS "https://YOUR_HOST/api/auth/providers/local/password/login" \
+    -H "Content-Type: application/json" --data-binary @- |
+  jq -er '.accessToken'
+)"
+```
+
+- `"mode": "json"` returns a **bare** body: `{ accessToken, refreshToken, expires, requireAcceptTerms? }`. `expires` is the access-token lifetime in seconds. Read `body.accessToken`, not `body.data.accessToken`.
+- Without `mode` (the default is `"session"`), the server instead sets httpOnly cookies (access cookie on `/api`, refresh cookie on `/api/auth`), and the body carries no tokens. Use this for browser apps.
+- Refresh: `POST /api/auth/refresh` with `{"refreshToken":"…"}` returns a new bare token pair (JSON mode). With body `{}` it uses the refresh cookie and re-issues cookies (session mode).
+- Logout: `POST /api/auth/logout` with `{"refreshToken":"…"}` (or `{}` with the refresh cookie) invalidates the refresh token and clears session cookies.
+- `requireAcceptTerms: true` means the organization's terms are still pending. Surface the pending Studio onboarding step to the operator; successful login does not imply terms acceptance. API calls can still work in the meantime.
+
+## Roles, policies, and license preflight
+
+- Roles are flat (no inheritance). When diagnosing access, check the user's **directly assigned** roles and the policies on those roles. Suspended users cannot authenticate.
+- Each workspace gets built-in **public** and **administrator** roles automatically. They cannot be updated or deleted, and the public role cannot be attached to a user.
+- **Check the license before designing authorization.** The keyless Starter profile has `custom_roles: 0`, `custom_policies: 0`, `service_accounts: 0`, and `workspaces: 1`. Creating a custom role, policy, service account, or a second workspace returns 402 (see [bootstrap-and-schema.md](bootstrap-and-schema.md#1-preflight-the-instance)). On Starter, per-customer or per-tenant access control cannot be built from custom roles and policies. Say so and offer alternatives, such as a server-side backend that enforces tenant scoping, or a plan upgrade.
+- Filtering results only in browser code while authenticated as an administrator **is not tenant isolation**. Do not present it as such, and do not ship admin or API-key credentials to browsers.
 
 ## MCP server
 
-- **Transport:** streamable-HTTP, stateless. JSON responses. **POST only** (GET/DELETE → 405). MCP protocol version `2025-11-25`; the server identifies as `monospace`.
-- **Endpoint:** `POST https://<host>/api/<workspace>/mcp` — **per workspace**. Each workspace has its own MCP endpoint; there is no single system-wide MCP URL.
-- **Authorization:** `Authorization: Bearer <token>` or, only when headers are unavailable, `access_token=<token>` query parameter (API key or user access token). The workspace must have the **`ai:mcp` entitlement** enabled. Beyond that, every tool call is checked against the token's RBAC, so the agent can only do what the key/user is allowed to do.
+- **Endpoint:** `POST https://<host>/api/<workspace>/mcp`, one per workspace. There is no `/api/mcp` or `/api/system/mcp`.
+- **Transport:** stateless streamable HTTP, POST only (GET → 405). Protocol version `2025-11-25`. The server name is `monospace`.
+- **Auth:** a bearer token (API key or user access token). There is no OAuth / dynamic client registration. The caller also needs the **`ai:mcp`** entitlement through their roles or policies. The administrator used in testing had it. Anonymous requests get **403** by default, because the default public role does not grant `ai:mcp`. Anonymous MCP access happens only if someone explicitly grants `ai:mcp` to the public role, so don't assume it or recommend it by default.
+- **Authorization per call:** every tool call is checked against the caller's permissions. `tools/list` shows all seven tools to any caller with `ai:mcp`. **A listed tool does not mean the caller may run it.** Expect a permission error from the call itself.
 
-> The engine authenticates the MCP server with static tokens — there is no OAuth 2.1 / dynamic-client-registration handshake here. Use an API key as shown.
+### Config
 
-### `.mcp.json` (Claude Code, project root)
-
+`.mcp.json` (Claude Code, project root):
 ```jsonc
 {
   "mcpServers": {
@@ -37,52 +71,63 @@ Authenticated API requests accept exactly one credential source: `Authorization:
   }
 }
 ```
-Other agents (Cursor, etc.) use the same three facts — remote/HTTP transport, the per-workspace URL, and either the `Authorization: Bearer` header or, for URL-only clients, an `access_token` query parameter populated from a secret store — in their own MCP config format.
+Codex (`~/.codex/config.toml`):
+```toml
+[mcp_servers.monospace]
+url = "https://YOUR_HOST/api/YOUR_WORKSPACE/mcp"
+bearer_token_env_var = "MONOSPACE_API_KEY"
+```
+Other clients need the same three facts: HTTP transport, the per-workspace URL, and a bearer header. Clients that only accept a URL can use `?access_token=`, filled in from a secret store.
 
 ### Tools (7)
 
-| Tool | Does | Permission required |
+| Tool | Does | Needs (besides `ai:mcp`) |
 | --- | --- | --- |
-| `list_items` | Query items in a collection (filter/sort/paginate) | caller's read permission |
-| `create_items` | Create one or more items | caller's create permission |
-| `update_item` | Update an item | caller's update permission |
-| `delete_item` | Delete an item | caller's delete permission |
-| `read_schema` | Inspect collections/fields/relations | `dataModel:read` |
-| `read_data_sources` | List configured data sources | `dataModel:read` + `dataSource:read` |
-| `mutate_schema` | Create/alter schema (can be **destructive**) | `dataModel:edit` |
+| `list_items` | query items (filter/sort/paginate) | read permission on the collection |
+| `create_items` | create one or more items | create permission |
+| `update_item` | update an item | update permission |
+| `delete_item` | delete an item | delete permission |
+| `read_schema` | inspect collections, fields, relations | `dataModel:read` |
+| `read_data_sources` | list data sources | `dataModel:read` + `dataSource:read` |
+| `mutate_schema` | create or alter schema (can be **destructive**) | `dataModel:edit` |
 
-Read-first workflow: use `read_schema` (and `list_items`) before `create_items` / `update_item` / `mutate_schema`, then verify with a follow-up read. Treat `mutate_schema` as destructive — confirm intent before altering or dropping schema.
+Work read-first: call `read_schema` and `list_items` before any create, update, or `mutate_schema`, then verify with a follow-up read. Apply schema changes within the user's authorized scope; clarify destructive effects outside that scope before proceeding.
 
-### `list_items` query limits
-
-The tool takes `collection`, a required scalar `fields` array, and optional `filter`,
-`sort`, `limit`, and `offset`. It does **not** expose REST/SDK `include` or `meta`.
-Use SDK/REST when you need related rows or total-count metadata; do not pass nested
-objects or relation dot-paths in the MCP `fields` array.
-
+**`list_items` limits:** it takes `collection`, a required scalar `fields` array, and optional `filter`, `sort`, `limit`, `offset`. It has no `include` and no `meta`, so use SDK or REST for related rows or total counts. Use the object sort form even if a tool description suggests `-field`:
 ```json
-{
-  "collection": "Articles",
-  "fields": ["id", "title"],
-  "filter": { "status": { "_eq": "published" } },
-  "sort": [{ "created_at": { "direction": "desc" } }],
-  "limit": 20
-}
+{ "collection": "Articles", "fields": ["id", "title"], "filter": { "status": { "_eq": "published" } },
+  "sort": [{ "created_at": { "direction": "desc" } }], "limit": 20 }
 ```
 
-Use the object sort form even if the tool's description suggests `-created_at`:
-the REST query adapter rejects that shorthand. Check the live tool schema for the
-available arguments.
+### Diagnose with a real initialize request
 
-### Troubleshooting
+A bare `curl -X POST …/mcp` cannot tell reachability, authentication, and protocol errors apart. Send a proper initialize request:
 
-1. **Reachable?** `curl -s -o /dev/null -w "%{http_code}" -X POST https://<host>/api/<workspace>/mcp` — `401` = up but unauthenticated (expected with no token); `403` = authenticated but forbidden by RBAC or missing entitlement; `404` = wrong path; timeout/refused = unreachable or wrong host.
-2. **Right URL?** It must be `/api/<workspace>/mcp` with the correct workspace slug. There is no `/api/mcp` or `/api/system/mcp`.
-3. **Token valid + entitled?** Confirm either the `Authorization: Bearer` header or the `access_token` query parameter is present, but not both, and that the token is valid and the workspace has the `ai:mcp` entitlement. Tools missing entirely usually means auth/entitlement, not transport.
-4. **Tool says forbidden?** The token lacks the RBAC for that tool (e.g. `read_schema` needs `dataModel:read`). Mint a key with the needed permissions.
+```bash
+curl -sS -i -X POST "https://YOUR_HOST/api/YOUR_WORKSPACE/mcp" \
+  -H "Authorization: Bearer $MONOSPACE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"diag","version":"1"}}}'
+```
+
+Then send `{"jsonrpc":"2.0","id":2,"method":"tools/list"}` with the same headers. The server is stateless, so no session header is needed.
+
+| Result | Meaning / fix |
+| --- | --- |
+| 200 with `result.protocolVersion` | transport and initialization work; diagnose each subsequent tool result separately |
+| 401 `Invalid token` | token malformed, expired, or revoked |
+| 403 (message names `ai:mcp`) | no credential sent, or the subject lacks the `ai:mcp` entitlement |
+| 200 with `result.isError: true` | tool execution failed; inspect `result.content` for permission, query, or schema errors. A new key for the same user cannot change its permissions |
+| 405 | used GET/DELETE; use POST |
+| 406 | `Accept` missing or incomplete. It must list both `application/json` and `text/event-stream` |
+| 415 | `Content-Type: application/json` missing |
+| 404, timeout, refused | wrong host, path, or workspace slug, or unreachable |
+
+Read HTTP error bodies, JSON-RPC `error`, and tool `result.isError` / `result.content`. An HTTP 200 alone does not prove the operation succeeded.
 
 ## When to use MCP vs SDK vs REST
 
-- **MCP** — agentic CRUD and schema work from inside a chat/coding agent, under RBAC, no codegen step. Start here for "read/change my data" tasks.
-- **SDK** (`@monospace/sdk`) — application code in TypeScript; generate types first for full type safety ([sdk.md](sdk.md)).
-- **REST** — other languages, scripts, or when you need raw control ([rest-api.md](rest-api.md)).
+- **MCP**: agentic CRUD and schema work inside a chat or coding agent, no codegen step.
+- **SDK** (`@monospace/sdk`): TypeScript application code. Generate types first ([sdk.md](sdk.md)).
+- **REST**: other languages, scripts, bootstrap and management routes ([rest-api.md](rest-api.md), [bootstrap-and-schema.md](bootstrap-and-schema.md)).
